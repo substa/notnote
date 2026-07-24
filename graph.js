@@ -334,9 +334,15 @@
   // Serialize the tree deterministically so structural edits produce small Markdown diffs.
   function serializeDocument(document) {
     const output = [...(document.preamble || [])];
-    if (output.length && document.blocks?.length) output.push("");
+    const hasPersistentBlocks = document.blocks?.some(
+      (block) => !block.transient,
+    );
+    if (output.length && hasPersistentBlocks) output.push("");
     const visit = (blocks, depth) => {
       for (const block of blocks) {
+        // The outliner keeps its final “new block” editor in memory until the
+        // user types. It is UI state and must never leak into Markdown.
+        if (block.transient) continue;
         const lines = String(block.content ?? "").split("\n");
         output.push(
           `${"  ".repeat(depth)}${block.marker || "-"} ${lines.shift() || ""}`,

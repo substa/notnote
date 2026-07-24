@@ -6,13 +6,11 @@
     <style>
       :root {
         --bg: #ffffff;
-        --border: #e7e7ea;
         --ink: #0f0f10;
       }
       .tile {
         fill: var(--bg);
-        stroke: var(--border);
-        stroke-width: 4;
+        stroke: none;
       }
       .mark {
         fill: none;

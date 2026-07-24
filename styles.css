@@ -1548,6 +1548,51 @@ svg {
   content: "Empty block";
   color: var(--muted);
 }
+.graph-new-block {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 6px 2px 0;
+  border: 0;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: text;
+  font: 400 18px/1.72 var(--body);
+  text-align: left;
+  opacity: 0;
+}
+.graph-new-block-visible {
+  opacity: 1;
+}
+.graph-new-block > span {
+  position: relative;
+  width: 30px;
+  height: 32px;
+}
+.graph-new-block > span:before {
+  content: "";
+  position: absolute;
+  left: 19px;
+  top: 14px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.graph-new-block:hover,
+.graph-new-block:focus-visible,
+.graph-new-block:active {
+  background: transparent !important;
+  box-shadow: none;
+  outline: 0;
+}
 .journal-entry.today
   .journal-blocks
   > .block-node:first-child
@@ -1830,6 +1875,7 @@ svg {
   font: 10px var(--mono);
 }
 .add-block {
+  display: none;
   margin: 8px 0 0 21px;
   padding: 3px 6px;
   border: 0;

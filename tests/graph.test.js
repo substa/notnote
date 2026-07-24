@@ -21,6 +21,23 @@ test('parses and serializes nested Logseq blocks', () => {
   assert.equal(Graph.serializeDocument(document), markdown);
 });
 
+test('does not serialize the transient new-block placeholder', () => {
+  const document = Graph.parseDocument('- existing\n');
+  document.blocks.push({
+    id: 'placeholder',
+    content: '',
+    marker: '-',
+    children: [],
+    transient: true,
+  });
+
+  assert.equal(Graph.serializeDocument(document), '- existing\n');
+
+  const preambleOnly = Graph.parseDocument('title:: Notes\n');
+  preambleOnly.blocks.push({ ...document.blocks.at(-1), id: 'preamble-placeholder' });
+  assert.equal(Graph.serializeDocument(preambleOnly), 'title:: Notes\n');
+});
+
 test('preserves Logseq task markers and scheduling metadata', () => {
   const markdown = '- TODO Prepare release\n  SCHEDULED: <2026-07-18 Sat>\n- NOW Review changes\n  DEADLINE: <2026-07-20 Mon>\n- DONE Publish\n';
   const document = Graph.parseDocument(markdown);

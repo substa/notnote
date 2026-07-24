@@ -1925,6 +1925,49 @@ Open, save, export, and reach recent documents or headings from the command pale
     return dashboard;
   }
 
+  function graphNewBlockElement(
+    page = state.graphPage,
+    visible = false,
+  ) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `graph-new-block${visible ? " graph-new-block-visible" : ""}`;
+    button.dataset.newBlockPage = page?.path || "";
+    button.setAttribute("aria-label", "Create a new block");
+    button.innerHTML = '<span aria-hidden="true"></span>';
+    return button;
+  }
+
+  function graphDocumentHasContent(document) {
+    return NotdGraph.flattenBlocks(document?.blocks || []).some(({ block }) =>
+      String(block.content || "").trim(),
+    );
+  }
+
+  function graphDocumentHasEmptyBlock(document) {
+    return NotdGraph.flattenBlocks(document?.blocks || []).some(
+      ({ block }) => !String(block.content || "").trim(),
+    );
+  }
+
+  function syncGraphNewBlockElement(container, document, page) {
+    if (!container) return;
+    const pagePath = page?.path || "";
+    const existing = $$(".graph-new-block", container).find(
+      (button) => button.dataset.newBlockPage === pagePath,
+    );
+    if (graphDocumentHasEmptyBlock(document)) existing?.remove();
+    else if (existing)
+      existing.classList.toggle(
+        "graph-new-block-visible",
+        !graphDocumentHasContent(document),
+      );
+    else
+      container.append(
+        graphNewBlockElement(page, !graphDocumentHasContent(document)),
+      );
+  }
+
   // Rebuild the outliner from the graph model after structural mutations.
   function renderGraphPage() {
     if (!state.graphMode || !state.graphDocument) return;
@@ -2039,6 +2082,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         const tree = document.createElement("div");
         tree.className = "journal-blocks";
         tree.append(renderBlocks(journalDocument.blocks, page));
+        syncGraphNewBlockElement(tree, journalDocument, page);
         section.append(tree);
         if (emptyToday && !state.onThisDayEmptyDismissed) {
           const history = onThisDayElement({ expanded: true, featured: true });
@@ -2060,6 +2104,13 @@ Open, save, export, and reach recent documents or headings from the command pale
       if (state.graphZoomId)
         roots = [graphBlockLocation(state.graphZoomId)?.block].filter(Boolean);
       fragment.append(renderBlocks(roots));
+      if (!graphDocumentHasEmptyBlock(state.graphDocument))
+        fragment.append(
+          graphNewBlockElement(
+            state.graphPage,
+            !graphDocumentHasContent(state.graphDocument),
+          ),
+        );
     }
     blockTree.replaceChildren(fragment);
     const preamble = $("#pagePreamble");
@@ -2191,6 +2242,12 @@ Open, save, export, and reach recent documents or headings from the command pale
       updateVimUi();
     }
     hideGraphAutocomplete();
+    if (block.transient && !field.value) {
+      const location = graphBlockLocation(block.id);
+      if (location) location.blocks.splice(location.index, 1);
+      renderGraphPage();
+      return;
+    }
     if (field.isConnected) {
       const content = graphContentElement(block, page);
       field
@@ -3437,6 +3494,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   }
 
   function graphMutationFocus(block, position = null) {
+    if (block.transient && block.content) delete block.transient;
     graphChanged();
     focusGraphBlock(block.id, position);
   }
@@ -3481,7 +3539,14 @@ Open, save, export, and reach recent documents or headings from the command pale
     field.classList.toggle("graph-code-editor", code);
     field.classList.toggle("graph-quote-editor", Boolean(quote));
     location.block.content = field.value;
+    if (location.block.transient && field.value)
+      delete location.block.transient;
     activeGraphBlock.block = location.block;
+    syncGraphNewBlockElement(
+      field.closest(".journal-blocks") || blockTree,
+      state.graphDocument,
+      activeGraphBlock.page,
+    );
     resizeGraphEditor(field);
     keepActiveMobileBlockVisible();
     graphChanged();
@@ -3659,6 +3724,30 @@ Open, save, export, and reach recent documents or headings from the command pale
       graphChanged();
       renderGraphPage();
     }
+  }
+
+  async function createGraphBlockFromPlaceholder(pagePath) {
+    const page =
+      state.graphPage?.path === pagePath
+        ? state.graphPage
+        : graphStore?.pages.find((item) => item.path === pagePath);
+    if (!page) return;
+    if (page.path !== state.graphPage?.path) {
+      if (state.dirty && !(await flushGraphSave(true))) return;
+      await loadGraphPage(page, { journalMode: state.journalMode });
+    }
+    commitGraphBlock();
+    const block = {
+      id: NotdGraph.newId(),
+      uuid: null,
+      content: "",
+      marker: "-",
+      children: [],
+      collapsed: false,
+      transient: true,
+    };
+    state.graphDocument.blocks.push(block);
+    focusGraphBlock(block.id, 0);
   }
 
   function createNextGraphBlock(block, content = "") {
@@ -8503,6 +8592,11 @@ Open, save, export, and reach recent documents or headings from the command pale
       !event.shiftKey
     )
       clearGraphBlockSelection();
+    const newBlock = event.target.closest("[data-new-block-page]");
+    if (newBlock) {
+      await createGraphBlockFromPlaceholder(newBlock.dataset.newBlockPage);
+      return;
+    }
     const scheduledDate = event.target.closest("[data-scheduled-block]");
     if (scheduledDate) {
       event.preventDefault();
