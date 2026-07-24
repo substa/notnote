@@ -2610,6 +2610,9 @@ svg {
   inset: 0;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background: var(--bg);
 }
 .page-directory-view[hidden] {
@@ -2638,17 +2641,23 @@ svg {
 }
 .page-directory-main {
   width: min(760px, calc(100% - 48px));
+  min-width: 0;
+  max-width: 100%;
   min-height: 0;
   flex: 1;
   margin: 0 auto;
   padding: 46px 0 70px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .page-directory-title {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 20px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   margin-bottom: 24px;
 }
 .page-directory-title h1 {
@@ -2658,6 +2667,8 @@ svg {
 }
 .page-directory-title span,
 .page-directory-pagination {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--muted);
   font: 11px/1.4 var(--ui);
 }
@@ -2684,9 +2695,16 @@ svg {
   color: var(--text);
 }
 .page-directory-content {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 180px;
 }
 .page-directory-group {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   border-bottom: 1px solid var(--border);
 }
 .page-directory-group summary {
@@ -2720,6 +2738,9 @@ svg {
 }
 .page-directory-group div {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 0 0 10px 17px;
 }
 .page-directory-page {
@@ -2727,6 +2748,8 @@ svg {
   align-items: baseline;
   gap: 12px;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 8px 9px;
   overflow: hidden;
   border: 0;
@@ -2758,14 +2781,21 @@ svg {
   text-align: center;
 }
 .page-directory-pagination {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
+  width: calc(100% - 26px);
+  max-width: calc(100% - 26px);
   margin: 0 9px 10px 17px;
 }
+.page-directory-pagination > span {
+  min-width: 0;
+  text-align: center;
+}
 .page-directory-pagination button {
-  min-width: 84px;
+  width: 100%;
+  min-width: 0;
   padding: 7px 10px;
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -3537,7 +3567,6 @@ svg {
     gap: 8px;
   }
   .page-directory-pagination button {
-    min-width: 68px;
     padding-right: 7px;
     padding-left: 7px;
   }

@@ -254,6 +254,12 @@
       keys: "Mod+Shift+8",
     },
     {
+      id: "blockCollapseAll",
+      section: "Blocks",
+      label: "Collapse or expand all blocks",
+      keys: "Mod+Shift+L",
+    },
+    {
       id: "blockIndent",
       section: "Blocks",
       label: "Indent block",
@@ -1102,6 +1108,36 @@ Open, save, export, and reach recent documents or headings from the command pale
       "aria-label",
       block.collapsed ? "Expand nested blocks" : "Collapse nested blocks",
     );
+  }
+
+  function toggleAllGraphBlocks() {
+    if (!state.graphMode || !state.graphDocument || !state.graphPage) return;
+    if (state.sourceMode) return toast("Close Markdown source first");
+    commitGraphBlock();
+    const blocks = NotdGraph.flattenBlocks(state.graphDocument.blocks)
+      .map(({ block }) => block)
+      .filter((block) => block.children.length);
+    if (!blocks.length) return toast("This page has no nested blocks");
+    const collapse = blocks.some((block) => !block.collapsed);
+    const collapsedById = new Map();
+    for (const block of blocks) {
+      block.collapsed = collapse;
+      collapsedById.set(block.id, collapse);
+    }
+    saveGraphCollapse();
+    $$(".block-node", blockTree).forEach((node) => {
+      if (node.dataset.pagePath !== state.graphPage.path) return;
+      const collapsed = collapsedById.get(node.dataset.blockId);
+      if (collapsed === undefined) return;
+      node.classList.toggle("collapsed", collapsed);
+      const toggle = $("[data-block-toggle]", node);
+      toggle?.setAttribute("aria-expanded", String(!collapsed));
+      toggle?.setAttribute(
+        "aria-label",
+        collapsed ? "Expand nested blocks" : "Collapse nested blocks",
+      );
+    });
+    toast(collapse ? "All blocks collapsed" : "All blocks expanded");
   }
 
   function visibleGraphPreamble(lines = []) {
@@ -7153,7 +7189,8 @@ Open, save, export, and reach recent documents or headings from the command pale
     $("#pageDirectoryFilter").value = "";
     $("#pageDirectoryView").hidden = false;
     renderPageDirectory();
-    requestAnimationFrame(() => $("#pageDirectoryFilter").focus());
+    if (!usesMobileInput())
+      requestAnimationFrame(() => $("#pageDirectoryFilter").focus());
   }
 
   let pageHistoryReturnFocus = null;
@@ -8479,6 +8516,11 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (state.graphMode && shortcutMatches("today", event)) {
       event.preventDefault();
       requestAction(openToday);
+      return;
+    }
+    if (state.graphMode && shortcutMatches("blockCollapseAll", event)) {
+      event.preventDefault();
+      toggleAllGraphBlocks();
       return;
     }
     if (state.graphMode && shortcutMatches("back", event)) {

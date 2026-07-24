@@ -210,6 +210,7 @@ Each bullet is a block. Nested blocks are stored through Markdown indentation.
 | Clear the block selection | `Escape` |
 | Cycle the task state | `⌘/Ctrl + Enter` |
 | Collapse or expand children | Arrow beside the bullet |
+| Collapse or expand every nested block on the page | `⌘/Ctrl + Shift + L` |
 | Zoom into a block | Click the bullet |
 
 Editing does not add a border or background to the active block. To select blocks for a bulk action, use `⌘/Ctrl + click`; `Shift + click` extends the selection across the visible range. Selected blocks are highlighted and can be deleted together with `Backspace`. Deleting a parent block also deletes its nested blocks.
