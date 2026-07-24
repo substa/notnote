@@ -7,36 +7,14 @@
 
 > [!IMPORTANT]
 > **Disclaimer — notd is deliberately and strongly opinionated.**
-<br>For years, I’ve used [Logseq](https://github.com/logseq/logseq) to keep track of all my ideas, tasks, activities, works, clients, and any other information worth being able to search and revisit even years later. Over time, I refined my workflow to handle a large volume of data while relying on as few plugins or extra features as possible. Recently, Logseq decided to change direction with its database version, so I figured it was time to make use of all the Markdown files I’ve accumulated over the years with a simpler tool—one that works exactly the way I need it to.
+<br>For years, I’ve used [Logseq](https://github.com/logseq/logseq) to keep track of all my ideas, tasks, activities, works, clients, and any other information worth being able to search and revisit even years later. Over time, I refined my workflow to handle a large volume of data while relying on as few plugins or extra features as possible. Recently, Logseq decided to change direction with its database version, so I figured it was time to make use of all the Markdown files I’ve accumulated over the years with a simpler tool that works exactly the way I need it to.
 <br>No, I'm not kidding — you probably shouldn't use this software, unless, unfortunately for you, you happen to share the exact same mindset as me.
-<br>In addition, despite the fact that I use them every day, it's still a work in progress — expect some bugs along the way.
 <br><br>
 
 
-## Screenshots
+## Screenshot
 
-![Today's journal](assets/screenshots/01-today.png)
-
-<details>
-<summary>2. On this day</summary>
-
-![On this day timeline](assets/screenshots/02-on-this-day.png)
-
-</details>
-
-<details>
-<summary>3. Tasks for the day</summary>
-
-![Tasks for the current day](assets/screenshots/03-tasks-on-day.png)
-
-</details>
-
-<details>
-<summary>4. Linked references</summary>
-
-![Linked references](assets/screenshots/05-linked-references.png)
-
-</details>
+![notd journal on Towel Day](assets/screenshots/notd.png)
 
 
 ## Principles
@@ -149,7 +127,7 @@ python3 server.py --port 4176 --graph /absolute/path/to/graph
 
 ```text
 assets/icons/       Browser and PWA icons
-assets/screenshots/ README screenshots
+assets/screenshots/ README screenshot
 docker/             Container image, Compose stack, and environment template
 docs/               User, architecture, and deployment documentation
 tests/              Graph parser and index tests
@@ -174,11 +152,3 @@ For internet access, use authentication and TLS at a reverse proxy, keep the Pyt
 ## Scope
 
 notd is maintained as a focused personal tool rather than a general-purpose knowledge platform. Features that add persistent interface complexity, broad configuration surfaces, plugin systems, or hosted dependencies may be outside its intended scope.
-
-## Security and support
-
-Read [SECURITY.md](SECURITY.md) before exposing a server-backed graph. Security reports should use the private channel described there rather than a public issue.
-
-## License
-
-notd is released under the [MIT License](LICENSE).

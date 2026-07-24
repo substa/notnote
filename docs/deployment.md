@@ -212,31 +212,3 @@ docker compose down
 ```
 
 `docker compose down` does not remove the host graph because it is a bind mount. Never add `-v` blindly to maintenance commands, and back up the graph independently of Docker.
-
-## Troubleshooting
-
-### Pangolin returns a gateway error
-
-Check that both containers share the same network:
-
-```bash
-docker network inspect pangolin
-```
-
-Both `notd` and the Newt container must appear in the output. From Newt, test name resolution and connectivity using the diagnostic tools available in that image.
-
-### notd reports permission errors
-
-Check `NOTD_UID`, `NOTD_GID`, and ownership of the graph directories. The container intentionally does not run as root.
-
-### Reads work but saves are rejected
-
-Confirm that Pangolin preserves the public `Host` header and does not rewrite the browser `Origin` header. The public origin and host must match.
-
-### Live updates do not arrive
-
-Confirm that Pangolin allows long-lived HTTP streaming and does not buffer `/api/graph/events`. Normal page editing still saves without SSE, but other clients will not receive immediate notifications.
-
-### The service is reachable without Pangolin
-
-The Compose mapping must start with `127.0.0.1:`. Do not change it to `4176:4176` or `0.0.0.0:4176:4176`. Also verify the server firewall and remove any older direct port-forwarding rule.

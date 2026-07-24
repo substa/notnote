@@ -29,25 +29,9 @@ Open `http://localhost:4176` on the server or `http://SERVER-IP:4176` from anoth
 
 notd can run in a normal browser tab or as an installed Progressive Web App. Installation requires HTTPS, except on `localhost`.
 
-### iPhone and iPad
+### Docker
 
-1. Open notd in Safari.
-2. Use **Share → Add to Home Screen**.
-3. Launch notd from its Home Screen icon.
-
-To install a renamed version or force an icon/name change, remove the existing Home Screen app, open the site again in Safari, and add it again. iOS controls the keyboard’s own previous/next/done accessory bar; a web app cannot hide it.
-
-### Desktop browsers
-
-Use the install button in the address bar or the browser menu. Chromium-based browsers provide the most complete local filesystem support. Browsers without the File System Access API can still use the server graph and download standalone documents.
-
-### Updating the installed app
-
-Open notd while online, close it completely, and launch it again. The Service Worker downloads the current application shell and removes obsolete caches. If an old interface remains, open the site once in the browser, reload it, then restart the installed app. As a last resort, remove and reinstall the PWA; graph files on disk are not deleted.
-
-### Docker and Pangolin
-
-The `docker/` directory contains the Dockerfile, Compose stack, environment template, and a complete [Docker and Pangolin deployment guide](./deployment.md). The container exposes notd only on server loopback for diagnostics and on a private Docker network shared with Newt. Pangolin must require authentication before forwarding traffic to `http://notd:4176`; never expose the writable Python API directly to the internet.
+The `docker/` directory contains the Dockerfile, Compose stack, environment template, and a complete [deployment guide](./deployment.md). The container exposes notd only on server loopback for diagnostics and on a private Docker network shared with Newt. Pangolin (or different access platform) must require authentication before forwarding traffic to `http://notd:4176`; never expose the writable Python API directly to the internet.
 
 ## Command palette
 
@@ -60,7 +44,68 @@ Open the command palette with:
 
 Use the palette for application actions: find pages and blocks, change themes, open files, navigate journals, manage graph maintenance, and open this documentation. Formatting tools stay in the editor toolbar, keyboard shortcuts, and inline autocomplete instead of appearing in the command list.
 
-Run **All pages** to open the page directory. Every alphabetical section is shown collapsed with its total page count and has independent pagination when it contains more than 50 pages; the filter updates results immediately and automatically expands matching sections. Select a title to open that page.
+## Commands
+
+The command palette supports the following application commands. Commands marked **Graph** are useful only while a graph is open. Displayed shortcuts are the current bindings and can be changed in **Settings → Shortcuts**.
+
+| Command | Scope | What it does |
+| --- | --- | --- |
+| **Settings** | Any | Opens the General settings panel. |
+| **Documentation** | Any | Opens this user guide inside notd. |
+| **Open local graph** | Any | Selects a local graph folder through the browser File System Access API. |
+| **Sync all notes and backlinks** | Graph | Rescans Markdown notes and rebuilds page, block, backlink, and autocomplete indexes. |
+| **Clean orphaned assets** | Graph | Reviews and, after confirmation, deletes files in `assets/` that are not referenced by any note. |
+| **Clean empty pages** | Graph | Reviews and deletes blank, unreferenced, non-journal pages after confirmation. |
+| **New graph page** | Graph | Prompts for a title and creates a page in `pages/`. |
+| **Today journal** | Graph | Opens today's journal. |
+| **Task dashboard** | Graph | Opens the complete task dashboard. |
+| **All pages** | Graph | Opens the searchable alphabetical page directory. |
+| **Previous page** | Graph | Goes back in graph navigation history. |
+| **Next page** | Graph | Goes forward in graph navigation history. |
+| **Copy block reference** | Graph | Adds an `id::` property when needed and copies the selected block reference as `((UUID))`. |
+| **Zoom into block** | Graph | Makes the selected block the root of the current outliner view. |
+| **Close graph** | Graph | Closes the graph and returns to the single-document editor. |
+| **Rename document** | Any | Focuses and selects the current document or page title for editing. |
+| **Find in document** | Any | Opens search for the current document or page. |
+| **Export HTML** | Any | Downloads the current document or page as a standalone `.html` file. |
+| **Full Markdown source** | Any | Toggles between the visual editor and the complete Markdown source. |
+| **Toggle Vim mode** | Any | Enables or disables Vim-style keyboard navigation and editing. |
+| **Light theme** | Any | Selects the light interface theme. |
+| **Dark theme** | Any | Selects the dark interface theme. |
+| **System theme** | Any | Follows the operating system's light or dark preference. |
+
+The palette also produces contextual results rather than fixed commands:
+
+| Result | What it does |
+| --- | --- |
+| **Outline: _heading_** | Jumps to a heading found in the current Markdown document. |
+| **Page or alias result** | Opens a graph page; aliases show and open their canonical page. |
+| **Block result** | Opens the source page and focuses the matching block. Block search starts after two typed characters. |
+| **Recent document result** | Opens a standalone document stored by notd. |
+| **Create page “…”** | Creates a graph page when the typed title does not already exist. |
+
+### Inline commands
+
+Inside a graph block, type `/` to open inline commands:
+
+| Command | What it does |
+| --- | --- |
+| `/todo` | Sets the block task state to `TODO`. |
+| `/doing` | Sets the block task state to `DOING`. |
+| `/done` | Sets the block task state to `DONE`. |
+| `/scheduled` | Opens the date picker and adds or updates the block's scheduled date. |
+| `/today` | Inserts a reference to today's journal. |
+| `/yesterday` | Inserts a reference to yesterday's journal. |
+| `/tomorrow` | Inserts a reference to tomorrow's journal. |
+| `/date picker` | Opens the date picker and inserts a reference to the selected journal date. |
+| `/upload` | Uploads a file to `assets/` and inserts its Markdown link. |
+
+Type `<` in a graph block to use structural commands:
+
+| Command | What it does |
+| --- | --- |
+| `<quote` | Inserts an Org-style quote block and places the caret inside it. |
+| `<src` | Inserts a fenced code block and places the caret inside it; an optional language can follow the command, for example `<src javascript`. |
 
 ## Find in the current document
 
@@ -80,18 +125,6 @@ Open the page menu from the gear icon at the right side of the footer. It provid
 
 When a graph is open, these preferences and custom shortcuts are saved in `.notd/settings.json` and follow the graph across devices.
 
-### Graph maintenance commands
-
-When a graph is open, the command palette also provides:
-
-| Command | What it does |
-| --- | --- |
-| **Open local graph** | Select a graph folder with browser filesystem access. |
-| **Sync all notes and backlinks** | Rescan every Markdown note and rebuild page, block, backlink, and autocomplete indexes. Use this after external changes that were not detected automatically. |
-| **Clean orphaned assets** | Scans `assets/` and opens a scrollable review containing every deletion candidate. Raw, encoded, relative, and non-standard filename occurrences in any Markdown note preserve the asset. After confirmation, references are checked again and remote deletions run as one server-side batch, so large cleanups do not leave later candidates behind. The check deliberately prefers false positives over deleting a referenced file; review the complete list and keep backups before confirming. |
-| **Clean empty pages** | Deletes blank non-journal files containing at most an empty bullet, but only when no page reference or tag links to them. A confirmation lists every candidate first. |
-| **New graph page** | Create a Markdown page in `pages/`. |
-| **Close graph** | Return to the single-document editor. |
 
 ## Graphs
 
@@ -355,7 +388,6 @@ Use `/upload` inside a graph block to select any file. notd stores it in the gra
 ![Recording](../assets/recording.mp3)
 ![Video](../assets/video.mp4)
 [Report](/assets/report.pdf)
-<iframe width="560" height="315" src="https://www.youtube.com/embed/cD2rQM2QP9w" title="YouTube video player" allowfullscreen></iframe>
 ```
 
 Removing a link or its block does not delete the file. Run **Clean orphaned assets** from the command palette later to review and delete unreferenced uploads. The command displays the candidate filenames and requires confirmation. In LAN mode, assets are served by the graph API.
@@ -397,39 +429,14 @@ To wrap selected text directly from the keyboard, type the opening character twi
 
 Available themes:
 
-- Light;
-- Dark;
-- System, which switches automatically when the operating-system preference changes.
+- Light
+- Dark
+- System (default), which switches automatically when the operating-system preference changes
 
 For an open graph, the selected theme persists in `.notd/settings.json` and follows the graph across devices.
 
 Fonts and the main colors for the light and dark themes can be customized in `theme-config.css`. This file is loaded after the application stylesheet, so its CSS variables override the defaults without requiring changes to `styles.css`.
 
-## Troubleshooting
-
-### Old name or interface still appears
-
-The installed PWA may still be displaying an obsolete cached shell. Open the site while online, reload it, close the PWA completely, and reopen it. On iOS, reinstall the Home Screen app when its displayed name or icon does not update.
-
-### Pages, suggestions, or linked references are duplicated
-
-Check the graph for accidentally nested copies such as `pages/pages/` or `journals/journals/`. notd ignores these common import mistakes, but removing the duplicate directories avoids confusion in other tools. Run **Sync all notes and backlinks** after fixing files externally.
-
-### Mobile shortcut toolbar is missing
-
-The task, indentation, movement, undo/redo, `[[ ]]`, and `(( ))` toolbar appears while editing a graph block on a touch device. In the installed PWA it is positioned above the software keyboard. Close and reopen the current block after rotating the device or reconnecting a hardware keyboard.
-
-### Local graph does not reopen
-
-Browser directory permission may have expired. Run **Open local graph** again and select the same graph directory. Clearing browser site data also clears the remembered directory handle.
-
-### Offline changes do not synchronize
-
-Open the PWA while connected and keep it in the foreground. iOS does not provide reliable background synchronization for PWAs. Check the footer for pending operations; a conflict requires reviewing the server and local versions rather than silently overwriting either one.
-
-### Documentation appears outdated
-
-Documentation is fetched without using the browser HTTP cache. Restart the PWA to activate the newest Service Worker if this guide still differs from the deployed `docs/user-guide.md` file.
 
 ## Privacy and security
 

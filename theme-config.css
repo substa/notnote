@@ -555,6 +555,14 @@ body {
   font-size: 10px;
   font-weight: 500;
 }
+.task-dashboard-item .graph-page-ref,
+.task-dashboard-item .graph-block-ref,
+.task-dashboard-item .graph-tag,
+.calendar-task .graph-page-ref,
+.calendar-task .graph-block-ref,
+.calendar-task .graph-tag {
+  color: var(--accent);
+}
 .task-dashboard-more {
   margin: 8px 0 0 20px;
   padding: 2px 0;
@@ -623,8 +631,14 @@ body {
   padding: 3px 0;
   overflow: hidden;
   border: 0;
+  outline: 0;
   background: transparent;
   text-align: left;
+  cursor: pointer;
+}
+.calendar-task:focus-visible {
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--accent);
 }
 .calendar-task > span {
   width: 4px;

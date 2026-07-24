@@ -2484,9 +2484,15 @@ svg {
   min-width: 0;
   padding: 0;
   border: 0;
+  outline: 0;
   background: transparent;
   color: inherit;
   text-align: left;
+  cursor: pointer;
+}
+.task-dashboard-item-main:focus-visible {
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--accent);
 }
 .journal-task-panel .task-dashboard-item-done .task-dashboard-item-main {
   color: var(--muted);

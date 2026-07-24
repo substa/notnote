@@ -460,6 +460,12 @@ Open, save, export, and reach recent documents or headings from the command pale
     );
   }
 
+  function decodeHtmlEntities(value = "") {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = value;
+    return textarea.value;
+  }
+
   function safeUrl(url) {
     const decoded = url.trim().replace(/&amp;/g, "&");
     return /^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i.test(decoded) ||
@@ -1161,8 +1167,10 @@ Open, save, export, and reach recent documents or headings from the command pale
           `<button type="button" class="graph-scheduled" data-scheduled-block="${escapeHtml(block.id)}" data-scheduled-date="${escapeHtml(date.slice(0, 10))}" title="Edit ${type === "DEADLINE" ? "deadline" : "scheduled date"}"><span class="graph-scheduled-icon" aria-hidden="true"></span>${escapeHtml(date)}</button>`,
       );
       rendered = rendered.replace(/\[\[([^\]]+?)\]\]/g, (_, target) => {
-        const [page, alias] = target.split("|");
-        return `<button class="graph-page-ref" data-page="${escapeHtml(page.trim())}">${escapeHtml((alias || page).trim())}</button>`;
+        const [encodedPage, encodedAlias] = target.split("|");
+        const page = decodeHtmlEntities(encodedPage).trim();
+        const alias = decodeHtmlEntities(encodedAlias || encodedPage).trim();
+        return `<button class="graph-page-ref" data-page="${escapeHtml(page)}">${escapeHtml(alias)}</button>`;
       });
       rendered = rendered.replace(/\(\(([0-9a-z-]{8,})\)\)/gi, (_, uuid) => {
         const label = blockReferenceLabel(uuid);
@@ -1365,10 +1373,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           .replace(/^[A-Z]+(?:\s+|$)/, "")
           .replace(/^\s*(?:SCHEDULED|DEADLINE):.*$/gm, "")
           .replace(/^\s*[\w-]+::.*$/gm, "")
-          .trim()
-          .replace(/\(\(([0-9a-z-]{8,})\)\)/gi, (_, uuid) =>
-            blockReferenceLabel(uuid),
-          );
+          .trim();
         tasks.push({
           page,
           block,
@@ -1577,6 +1582,10 @@ Open, save, export, and reach recent documents or headings from the command pale
     };
   }
 
+  function taskTextHtml(task) {
+    return graphTextHtml(task.text || "Untitled task", task.block);
+  }
+
   function taskRowsHtml(items) {
     const today = taskDate();
     return items.length
@@ -1584,7 +1593,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           .map((task) => {
             const overdue =
               !task.done && task.scheduled && task.scheduled < today;
-            return `<div class="task-dashboard-item${task.done ? " task-dashboard-item-done" : ""}"><button type="button" class="task-dashboard-state task-dashboard-state-${task.done ? "done" : task.progress ? "doing" : "todo"}" data-task-checkbox-page="${escapeHtml(task.page.path)}" data-task-checkbox-block="${escapeHtml(task.block.id)}" aria-label="Task status: ${escapeHtml(task.marker)}. Click to complete; Shift-click or hold to mark in progress" title="${escapeHtml(task.marker)} · click to complete · Shift-click or hold for DOING"></button><button type="button" class="task-dashboard-item-main" data-task-page="${escapeHtml(task.page.path)}" data-task-block-id="${escapeHtml(task.block.id)}"><span>${overdue ? '<i class="task-overdue-icon" title="Overdue" aria-label="Overdue">!</i>' : ""}${escapeHtml(task.text || "Untitled task")}</span>${task.scheduled ? `<time class="graph-scheduled" data-scheduled-page="${escapeHtml(task.page.path)}" data-scheduled-block="${escapeHtml(task.block.id)}" data-scheduled-date="${escapeHtml(task.scheduled)}" title="Edit scheduled date"><span class="graph-scheduled-icon" aria-hidden="true"></span>${escapeHtml(task.scheduled)}</time>` : ""}</button></div>`;
+            return `<div class="task-dashboard-item${task.done ? " task-dashboard-item-done" : ""}"><button type="button" class="task-dashboard-state task-dashboard-state-${task.done ? "done" : task.progress ? "doing" : "todo"}" data-task-checkbox-page="${escapeHtml(task.page.path)}" data-task-checkbox-block="${escapeHtml(task.block.id)}" aria-label="Task status: ${escapeHtml(task.marker)}. Click to complete; Shift-click or hold to mark in progress" title="${escapeHtml(task.marker)} · click to complete · Shift-click or hold for DOING"></button><div class="task-dashboard-item-main" data-task-page="${escapeHtml(task.page.path)}" data-task-block-id="${escapeHtml(task.block.id)}" role="button" tabindex="0"><span>${overdue ? '<i class="task-overdue-icon" title="Overdue" aria-label="Overdue">!</i>' : ""}${taskTextHtml(task)}</span>${task.scheduled ? `<time class="graph-scheduled" data-scheduled-page="${escapeHtml(task.page.path)}" data-scheduled-block="${escapeHtml(task.block.id)}" data-scheduled-date="${escapeHtml(task.scheduled)}" title="Edit scheduled date"><span class="graph-scheduled-icon" aria-hidden="true"></span>${escapeHtml(task.scheduled)}</time>` : ""}</div></div>`;
           })
           .join("")
       : '<p class="task-dashboard-empty">No tasks</p>';
@@ -2821,7 +2830,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     return tasks
       .map(
         (task) =>
-          `<button type="button" class="calendar-task" data-calendar-task-page="${escapeHtml(task.page.path)}" data-calendar-task-block="${escapeHtml(task.block.id)}"><span${task.progress ? ' class="calendar-task-progress"' : ""} aria-hidden="true"></span><b>${task.scheduled && task.scheduled < today ? '<i class="task-overdue-icon" title="Overdue" aria-label="Overdue">!</i>' : ""}${escapeHtml(task.text || "Untitled task")}</b></button>`,
+          `<div class="calendar-task" data-calendar-task-page="${escapeHtml(task.page.path)}" data-calendar-task-block="${escapeHtml(task.block.id)}" role="button" tabindex="0"><span${task.progress ? ' class="calendar-task-progress"' : ""} aria-hidden="true"></span><b>${task.scheduled && task.scheduled < today ? '<i class="task-overdue-icon" title="Overdue" aria-label="Overdue">!</i>' : ""}${taskTextHtml(task)}</b></div>`,
       )
       .join("");
   }
@@ -6263,6 +6272,12 @@ Open, save, export, and reach recent documents or headings from the command pale
       run: showFind,
     },
     {
+      label: "Export HTML",
+      shortcutId: "export",
+      keywords: "download html document",
+      run: exportHtml,
+    },
+    {
       label: "Full Markdown source",
       shortcutId: "source",
       keywords: "source code",
@@ -6926,8 +6941,26 @@ Open, save, export, and reach recent documents or headings from the command pale
       await openTasksPage();
       return;
     }
+    const pageLink = event.target.closest("[data-page]");
+    if (pageLink) {
+      event.preventDefault();
+      closeJournalCalendar();
+      await loadGraphPage(pageLink.dataset.page, { virtual: true });
+      return;
+    }
+    const blockReference = event.target.closest("[data-block-ref]");
+    if (blockReference) {
+      const resolved = graphIndex?.resolveBlock(
+        blockReference.dataset.blockRef,
+      );
+      closeJournalCalendar();
+      if (resolved)
+        await loadGraphPage(resolved.page, { blockId: resolved.block.id });
+      else toast("Referenced block not found");
+      return;
+    }
     const task = event.target.closest("[data-calendar-task-page]");
-    if (task) {
+    if (task && !event.target.closest("a, button, audio, video, iframe")) {
       const page = graphStore?.pages.find(
         (item) => item.path === task.dataset.calendarTaskPage,
       );
@@ -6946,6 +6979,14 @@ Open, save, export, and reach recent documents or headings from the command pale
     else requestAction(() => openSingleJournalDate(selectedDate));
   });
   journalCalendar.addEventListener("keydown", (event) => {
+    if (
+      (event.key === "Enter" || event.key === " ") &&
+      event.target.matches("[data-calendar-task-page]")
+    ) {
+      event.preventDefault();
+      event.target.click();
+      return;
+    }
     const day = event.target.closest("[data-calendar-date]");
     if (!day) return;
     const movements = {
@@ -7835,7 +7876,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   outliner.addEventListener("keydown", (event) => {
     if (
       (event.key === "Enter" || event.key === " ") &&
-      event.target.matches(".reference-result")
+      event.target.matches(".reference-result, [data-task-page]")
     ) {
       event.preventDefault();
       event.target.click();
@@ -7959,7 +8000,10 @@ Open, save, export, and reach recent documents or headings from the command pale
       return;
     }
     const taskSource = event.target.closest("[data-task-page]");
-    if (taskSource) {
+    if (
+      taskSource &&
+      !event.target.closest("a, button, audio, video, iframe")
+    ) {
       const page = graphStore?.pages.find(
         (item) => item.path === taskSource.dataset.taskPage,
       );
@@ -8602,7 +8646,6 @@ Open, save, export, and reach recent documents or headings from the command pale
     : "system";
   setTheme(savedTheme, false);
   setAccent(settings.accentColor || "#3f7fba", false);
-  if (settings.theme !== savedTheme) saveSettings({ theme: savedTheme });
   setVimEnabled(Boolean(settings.vimEnabled), false, false);
   let docs = getStoredDocs();
   if (settings.welcomeVersion !== WELCOME_VERSION) {
