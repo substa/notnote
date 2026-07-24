@@ -2242,7 +2242,10 @@ Open, save, export, and reach recent documents or headings from the command pale
       updateVimUi();
     }
     hideGraphAutocomplete();
-    if (block.transient && !field.value) {
+    const recordingThisBlock =
+      voiceRecording?.target?.block === block ||
+      voiceRecordingStartingTarget?.block === block;
+    if (block.transient && !field.value && !recordingThisBlock) {
       const location = graphBlockLocation(block.id);
       if (location) location.blocks.splice(location.index, 1);
       renderGraphPage();
@@ -4331,6 +4334,7 @@ Open, save, export, and reach recent documents or headings from the command pale
 
   let voiceRecording = null;
   let voiceRecordingStarting = false;
+  let voiceRecordingStartingTarget = null;
 
   function preferredVoiceMimeType() {
     if (typeof MediaRecorder === "undefined") return "";
@@ -4496,15 +4500,15 @@ Open, save, export, and reach recent documents or headings from the command pale
       target.field.focus();
       return;
     }
-    if (
-      target.pagePath !== state.graphPage?.path ||
-      !graphBlockLocation(target.block.id)?.block
-    )
+    const location = graphBlockLocation(target.block.id);
+    if (target.pagePath !== state.graphPage?.path || !location?.block)
       throw new Error("The source block changed while recording");
-    target.block.content =
-      `${target.block.content.slice(0, target.start)}${markdown}${target.block.content.slice(target.end)}`;
+    const block = location.block;
+    block.content =
+      `${block.content.slice(0, target.start)}${markdown}${block.content.slice(target.end)}`;
+    if (block.transient) delete block.transient;
     graphChanged();
-    focusGraphBlock(target.block.id, target.start + markdown.length);
+    focusGraphBlock(block.id, target.start + markdown.length);
   }
 
   async function completeVoiceRecording(session) {
@@ -4569,6 +4573,8 @@ Open, save, export, and reach recent documents or headings from the command pale
     voiceRecordingStarting = true;
     const store = graphStore;
     const pagePath = state.graphPage?.path;
+    const target = { field, block, start, end, pagePath };
+    voiceRecordingStartingTarget = target;
     let stream = null;
     let preparedContext = null;
     try {
@@ -4587,13 +4593,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         recorder,
         stream,
         store,
-        target: {
-          field,
-          block,
-          start,
-          end,
-          pagePath,
-        },
+        target,
         chunks: [],
         startedAt: Date.now(),
         timer: null,
@@ -4632,6 +4632,8 @@ Open, save, export, and reach recent documents or headings from the command pale
       );
     } finally {
       voiceRecordingStarting = false;
+      if (voiceRecordingStartingTarget === target)
+        voiceRecordingStartingTarget = null;
     }
   }
 
