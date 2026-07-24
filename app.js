@@ -1530,6 +1530,16 @@ Open, save, export, and reach recent documents or headings from the command pale
     );
   }
 
+  function taskWasCompletedToday(task) {
+    const timestamp = taskTimestamp(task.completedAt);
+    if (!task.done || !timestamp) return false;
+    const completed = new Date(timestamp);
+    return (
+      !Number.isNaN(completed.getTime()) &&
+      NotdGraph.formatJournalDate(completed, "yyyy-MM-dd") === taskDate()
+    );
+  }
+
   // Keep in-progress tasks separate here; overview views append them to Today in a stable order.
   function taskGroups(tasks = graphTasks()) {
     const today = taskDate();
@@ -1806,22 +1816,26 @@ Open, save, export, and reach recent documents or headings from the command pale
   function journalTaskPanelElement() {
     const overview = taskOverviewGroups();
     taskCompletedTodayIds();
-    const retainedIds = new Set([
-      ...state.taskSummaryIds,
-      ...state.taskCompletedTodayIds,
-    ]);
-    const completed = graphTasks().filter(
-      (task) => task.done && retainedIds.has(taskPersistenceId(task)),
-    );
+    const retainedIds = new Set(state.taskCompletedTodayIds);
+    const completed = graphTasks()
+      .filter(
+        (task) =>
+          task.done &&
+          (taskWasCompletedToday(task) ||
+            retainedIds.has(taskPersistenceId(task))),
+      )
+      .sort(compareCompletedTasks);
     const initialOrder = new Map(
       state.taskSummaryIds.map((id, index) => [id, index]),
     );
-    overview.today = uniqueTasks(overview.today, completed).sort(
+    const active = overview.today.sort(
       (left, right) =>
         (initialOrder.get(taskPersistenceId(left)) ?? Number.MAX_SAFE_INTEGER) -
         (initialOrder.get(taskPersistenceId(right)) ??
           Number.MAX_SAFE_INTEGER),
     );
+    // Completed-today tasks always follow every active/in-progress task.
+    overview.today = uniqueTasks(active, completed);
     const panel = document.createElement("section");
     panel.className = "journal-task-panel";
     const sections = [["Today", overview.today]];
@@ -3052,17 +3066,9 @@ Open, save, export, and reach recent documents or headings from the command pale
         throw error;
       }
     }
-    const scheduled =
-      originalContent.match(
-        /^\s*(?:SCHEDULED|DEADLINE):\s*<(\d{4}-\d{2}-\d{2})\b[^>]*>/m,
-      )?.[1] || "";
     const id = taskPersistenceId({ page, block });
-    const today = taskDate();
     taskCompletedTodayIds();
-    const belongedToToday =
-      (scheduled && scheduled <= today) ||
-      (!scheduled && page.journalDate === today);
-    if (next === "DONE" && (belongedToToday || inProgress)) {
+    if (next === "DONE") {
       if (!state.taskCompletedTodayIds.includes(id))
         state.taskCompletedTodayIds.push(id);
     } else if (next !== "DONE") {

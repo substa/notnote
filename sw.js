@@ -1,5 +1,5 @@
 // Keep the application shell separate from bounded, user-opened graph assets.
-const CACHE = "notd-editor-v55";
+const CACHE = "notd-editor-v56";
 const ASSET_CACHE = "notd-graph-assets-v1";
 const SETTINGS_CACHE = "notd-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;
