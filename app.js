@@ -7201,7 +7201,7 @@ Open, save, export, and reach recent documents or headings from the command pale
                 dateStyle: "medium",
                 timeStyle: "short",
               }).format(parsed);
-          return `<details class="page-history-commit" data-history-commit="${escapeHtml(commit.hash)}" data-history-path="${escapeHtml(commit.gitPath || result.path)}"><summary><code title="${escapeHtml(commit.hash)}">${escapeHtml(commit.hash.slice(0, 8))}</code><div><strong>${escapeHtml(commit.subject || "Untitled commit")}</strong><span>${escapeHtml(commit.author)} · ${escapeHtml(date)}</span></div><i aria-hidden="true"></i></summary><pre class="page-history-diff">Open to load the diff…</pre></details>`;
+          return `<details class="page-history-commit" data-history-commit="${escapeHtml(commit.hash)}" data-history-path="${escapeHtml(commit.gitPath || result.path)}"><summary><code title="${escapeHtml(commit.hash)}">${escapeHtml(commit.hash.slice(0, 8))}</code><div><strong>${escapeHtml(commit.subject || "Untitled commit")}</strong><span>${escapeHtml(commit.author)} · ${escapeHtml(date)}</span></div><i aria-hidden="true"></i></summary><div class="page-history-actions"><span class="page-history-restore-status" role="status"></span><button type="button" data-history-restore>Restore this version</button></div><pre class="page-history-diff">Open to load the diff…</pre></details>`;
         })
         .join("");
       $("#pageHistoryContent").innerHTML =
@@ -7209,6 +7209,65 @@ Open, save, export, and reach recent documents or headings from the command pale
     } catch (error) {
       $("#pageHistoryContent").innerHTML =
         `<p class="page-history-message">${escapeHtml(error.message || "Could not load Git history.")}</p>`;
+    }
+  }
+  async function restorePageHistoryCommit(button) {
+    const details = button.closest("[data-history-commit]");
+    const page = state.graphPage;
+    if (!details || !page || !graphStore?.isRemote) return;
+    const commit = details.dataset.historyCommit;
+    if (
+      !confirm(
+        `Restore “${page.title}” to commit ${commit.slice(0, 8)}? The current page content will be replaced.`,
+      )
+    )
+      return;
+    const originalLabel = button.textContent;
+    const status = $(".page-history-restore-status", details);
+    button.disabled = true;
+    button.textContent = "Restoring…";
+    status.textContent = "Loading version…";
+    try {
+      commitGraphBlock();
+      if (!(await flushGraphSave(true))) {
+        status.textContent = "Could not save the current page before restoring.";
+        return;
+      }
+      const query = new URLSearchParams({
+        path: page.path,
+        commit,
+        gitPath: details.dataset.historyPath,
+      });
+      const result = await graphStore.api(`/history/content?${query}`);
+      if (!result.available)
+        throw new Error(result.message || "This version cannot be restored");
+      status.textContent = "Saving restored version…";
+      await graphStore.writePage(page, result.content);
+      graphIndex.updatePage(page, result.content);
+      await NotdGraph.removeDraft(page.path).catch(() => {});
+      state.dirty = false;
+      state.graphConflict = false;
+      app.classList.remove("dirty");
+      const journalMode = state.journalMode;
+      const blockId = state.graphZoomId;
+      closePageHistory();
+      await loadGraphPage(page, {
+        historyNavigation: true,
+        journalMode,
+        blockId,
+      });
+      toast(`Restored commit ${commit.slice(0, 8)}`);
+    } catch (error) {
+      const message = /Unknown graph endpoint/i.test(error.message || "")
+        ? "Restore is unavailable until the notd server is restarted."
+        : error.message || "Could not restore this version";
+      status.textContent = `Restore failed: ${message}`;
+      toast(message);
+    } finally {
+      if (button.isConnected) {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
     }
   }
   function closeFooterMenu() {
@@ -7309,6 +7368,10 @@ Open, save, export, and reach recent documents or headings from the command pale
     true,
   );
   $("#pageHistoryClose").addEventListener("click", closePageHistory);
+  $("#pageHistoryContent").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-history-restore]");
+    if (button) restorePageHistoryCommit(button);
+  });
   $("#pageHistoryContent").addEventListener(
     "toggle",
     async (event) => {

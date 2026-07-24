@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import threading
 import unittest
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -122,6 +122,20 @@ class GitSyncManagerTests(unittest.TestCase):
         if result.returncode:
             self.fail(result.stderr or result.stdout)
         return result.stdout.strip()
+
+    def test_reads_page_content_from_a_previous_commit(self):
+        commit = self.git("rev-parse", "HEAD")
+        (self.graph / "pages" / "note.md").write_text("- Current\n")
+        handler = object.__new__(NotdHandler)
+        handler.server = SimpleNamespace(graph=self.graph)
+
+        content = handler.git_file_content(
+            self.graph,
+            commit,
+            PurePosixPath("pages/note.md"),
+        )
+
+        self.assertEqual(content, "- Initial\n")
 
     def test_commits_graph_changes_without_running_repository_hooks(self):
         marker = self.root / "hook-ran"

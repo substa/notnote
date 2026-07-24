@@ -709,7 +709,7 @@ svg {
 }
 .toast {
   position: fixed;
-  z-index: 100;
+  z-index: 300;
   left: 50%;
   bottom: 38px;
   transform: translate(-50%, 12px);
@@ -2809,11 +2809,13 @@ svg {
 }
 .page-history-main {
   width: min(760px, calc(100% - 48px));
+  max-width: 100%;
   min-height: 0;
   flex: 1;
   margin: 0 auto;
   padding: 52px 0 100px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 .page-history-main h1 {
   margin: 0 0 34px;
@@ -2822,6 +2824,9 @@ svg {
 }
 .page-history-content {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 .page-history-message {
   color: var(--muted);
@@ -2837,10 +2842,17 @@ svg {
   font: 12px/1.45 var(--ui);
 }
 .page-history-commit {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   border-bottom: 1px solid var(--border);
 }
 .page-history-commit summary {
   display: grid;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   grid-template-columns: 72px minmax(0, 1fr) 12px;
   align-items: start;
   gap: 18px;
@@ -2880,11 +2892,51 @@ svg {
 .page-history-commit[open] summary i {
   transform: translateY(4px) rotate(-135deg);
 }
+.page-history-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 10px;
+}
+.page-history-restore-status {
+  min-width: 0;
+  margin-right: auto;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font: 11px/1.4 var(--ui);
+}
+.page-history-actions button {
+  flex: none;
+  max-width: 100%;
+  padding: 7px 11px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--chrome);
+  color: var(--text);
+  font: 600 12px/1.3 var(--ui);
+}
+.page-history-actions button:hover,
+.page-history-actions button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.page-history-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
 .page-history-diff {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   max-height: 50vh;
   margin: 0 0 16px;
   padding: 14px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--code-block-bg, var(--code));

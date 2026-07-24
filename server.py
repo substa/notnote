@@ -629,6 +629,31 @@ class NotdHandler(SimpleHTTPRequestHandler):
             return None, None, "The page is outside the Git repository"
         return repository_root, repository_path, None
 
+    def git_file_content(
+        self,
+        repository_root: Path,
+        commit: str,
+        relative: PurePosixPath,
+    ) -> str:
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repository_root),
+                "show",
+                f"{commit}:{relative.as_posix()}",
+            ],
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        if result.returncode:
+            error = result.stderr.decode("utf-8", errors="replace").strip()
+            raise ValueError(error or "Could not read historical page")
+        if len(result.stdout) > MAX_BODY:
+            raise ValueError("Historical page is too large")
+        return result.stdout.decode("utf-8")
+
     def request_json(self) -> dict:
         try:
             length = int(self.headers.get("Content-Length", "0"))
@@ -833,6 +858,36 @@ class NotdHandler(SimpleHTTPRequestHandler):
                 truncated = len(result.stdout) > limit
                 diff = result.stdout[:limit] + ("\n… diff truncated …\n" if truncated else "")
                 return self.json_response({"available": True, "diff": diff, "truncated": truncated})
+            if parsed.path == "/api/graph/history/content":
+                target = self.graph_path(raw_path, markdown_only=True)
+                if not target.is_file():
+                    raise FileNotFoundError(raw_path)
+                repository_root, repository_path, message = self.git_context(target)
+                if not repository_root or not repository_path:
+                    return self.json_response({
+                        "available": False,
+                        "content": "",
+                        "message": message,
+                    })
+                commit = query.get("commit", [""])[0]
+                if not re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", commit):
+                    raise ValueError("Invalid Git commit")
+                git_path = query.get("gitPath", [repository_path])[0]
+                relative = PurePosixPath(git_path)
+                if (
+                    relative.is_absolute()
+                    or ".." in relative.parts
+                    or not relative.parts
+                ):
+                    raise ValueError("Invalid historical page path")
+                historical_target = (
+                    repository_root / Path(*relative.parts)
+                ).resolve()
+                historical_target.relative_to(self.graph.resolve())
+                if historical_target.suffix.lower() not in MARKDOWN_SUFFIXES:
+                    raise ValueError("Only Markdown history can be restored")
+                content = self.git_file_content(repository_root, commit, relative)
+                return self.json_response({"available": True, "content": content})
             if parsed.path == "/api/graph/asset":
                 target = self.graph_asset_path(raw_path)
                 if not target.is_file():
