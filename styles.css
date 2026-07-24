@@ -488,6 +488,12 @@ svg {
   line-height: 1.75;
   letter-spacing: 0;
 }
+.source-editor:focus,
+.source-editor:focus-visible {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
 .source-editor[hidden] {
   display: none;
 }
