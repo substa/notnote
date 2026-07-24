@@ -7342,6 +7342,19 @@ Open, save, export, and reach recent documents or headings from the command pale
       toggleGraphTask(block, true, true);
       return;
     }
+    if (action === "upload") {
+      uploadGraphAsset(
+        field,
+        block,
+        field.selectionStart,
+        field.selectionEnd,
+      );
+      return;
+    }
+    if (action === "collapse-all") {
+      toggleAllGraphBlocks();
+      return;
+    }
     if (action === "record") {
       if (Date.now() < suppressMobileRecordClickUntil) return;
       if (voiceRecording) finishVoiceRecording(true);
