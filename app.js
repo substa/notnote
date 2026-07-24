@@ -1069,18 +1069,39 @@ Open, save, export, and reach recent documents or headings from the command pale
     });
   }
 
-  function saveGraphCollapse() {
-    if (!state.graphPage) return;
+  function saveGraphCollapse(
+    document = state.graphDocument,
+    page = state.graphPage,
+  ) {
+    if (!page) return;
     const settings = currentSettings();
-    const ids = NotdGraph.flattenBlocks(state.graphDocument?.blocks)
+    const ids = NotdGraph.flattenBlocks(document?.blocks)
       .filter(({ block }) => block.collapsed)
       .map(({ block }) => block.id);
     saveSettings({
       graphCollapsed: {
         ...(settings.graphCollapsed || {}),
-        [state.graphPage.path]: ids,
+        [page.path]: ids,
       },
     });
+  }
+
+  function toggleGraphBlockCollapse(
+    block,
+    toggle,
+    document = state.graphDocument,
+    page = state.graphPage,
+  ) {
+    block.collapsed = !block.collapsed;
+    saveGraphCollapse(document, page);
+    toggle
+      .closest(".block-node")
+      ?.classList.toggle("collapsed", block.collapsed);
+    toggle.setAttribute("aria-expanded", String(!block.collapsed));
+    toggle.setAttribute(
+      "aria-label",
+      block.collapsed ? "Expand nested blocks" : "Collapse nested blocks",
+    );
   }
 
   function visibleGraphPreamble(lines = []) {
@@ -1842,6 +1863,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           toggle.className = "block-toggle";
           toggle.type = "button";
           toggle.dataset.blockToggle = block.id;
+          toggle.setAttribute("aria-expanded", String(!block.collapsed));
           toggle.setAttribute(
             "aria-label",
             block.collapsed ? "Expand nested blocks" : "Collapse nested blocks",
@@ -6613,12 +6635,16 @@ Open, save, export, and reach recent documents or headings from the command pale
     paletteContext = field
       ? { field, start: field.selectionStart, end: field.selectionEnd }
       : null;
+    const input = $("#commandInput");
     $("#commandPalette").hidden = false;
-    $("#commandInput").value = initialQuery;
+    input.value = initialQuery;
+    // Mobile browsers only open the software keyboard when focus happens
+    // synchronously inside the user gesture that opened the palette.
+    input.focus();
     selectedCommand = 0;
     expandedCommandSections.clear();
     renderCommandList();
-    requestAnimationFrame(() => $("#commandInput").focus());
+    requestAnimationFrame(() => input.focus());
   }
 
   function closeCommandPalette(refocus = true) {
@@ -8124,16 +8150,20 @@ Open, save, export, and reach recent documents or headings from the command pale
     }
     const toggle = event.target.closest("[data-block-toggle]");
     if (toggle) {
-      if (state.journalMode && pagePath && pagePath !== state.graphPage.path)
-        activateJournalBlock(pagePath, toggle.dataset.blockToggle, "toggle");
-      else {
-        const block = graphBlockLocation(toggle.dataset.blockToggle)?.block;
-        if (block) {
-          block.collapsed = !block.collapsed;
-          saveGraphCollapse();
-          renderGraphPage();
-        }
-      }
+      const page =
+        state.journalMode && pagePath && pagePath !== state.graphPage.path
+          ? graphStore?.pages.find((item) => item.path === pagePath)
+          : state.graphPage;
+      const document =
+        page && page.path !== state.graphPage.path
+          ? cachedJournalDocument(page)
+          : state.graphDocument;
+      if (!page || !document) return;
+      const block = graphBlockLocation(
+        toggle.dataset.blockToggle,
+        document.blocks,
+      )?.block;
+      if (block) toggleGraphBlockCollapse(block, toggle, document, page);
       return;
     }
     const bullet = event.target.closest("[data-block-bullet]");
