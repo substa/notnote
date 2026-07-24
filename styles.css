@@ -712,12 +712,15 @@ svg {
   z-index: 300;
   left: 50%;
   bottom: 38px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
   transform: translate(-50%, 12px);
   background: #333;
   color: #fff;
   border-radius: 5px;
   padding: 8px 13px;
   font-size: 11px;
+  text-align: center;
   opacity: 0;
   pointer-events: none;
   transition: 0.2s;
@@ -1564,6 +1567,16 @@ svg {
   max-width: 100%;
   margin: 8px 0;
 }
+.graph-block-content.audio-block-content {
+  padding-right: 38px;
+  cursor: text;
+}
+.graph-block-content.audio-block-content audio.media-embed {
+  cursor: default;
+}
+.block-row.audio-embed-row > .block-bullet {
+  align-self: center;
+}
 .graph-block-content video.media-embed {
   height: auto;
   max-height: min(70vh, 620px);
@@ -1849,6 +1862,11 @@ svg {
   gap: 1px;
   width: 100%;
   padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg) 94%, transparent);
   box-shadow: 0 -6px 24px #0002;
@@ -1858,10 +1876,13 @@ svg {
 .mobile-block-toolbar.keyboard-visible {
   padding-bottom: 4px;
 }
+.mobile-block-toolbar::-webkit-scrollbar {
+  display: none;
+}
 .mobile-block-toolbar button {
-  min-width: 0;
+  min-width: 42px;
   height: 36px;
-  flex: 1;
+  flex: 1 0 42px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -1874,6 +1895,13 @@ svg {
   background: var(--code);
   color: var(--text);
 }
+.mobile-block-toolbar button.recording {
+  background: color-mix(in srgb, #d33 16%, transparent);
+  color: #d33;
+}
+.mobile-block-toolbar button.recording svg {
+  animation: voice-record-pulse 1.2s ease-in-out infinite;
+}
 .mobile-block-toolbar svg {
   width: 17px;
   height: 17px;
@@ -1883,6 +1911,61 @@ svg {
 }
 .mobile-block-toolbar[hidden] {
   display: none !important;
+}
+.voice-recorder {
+  position: fixed;
+  z-index: 110;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: calc(100vw - 24px);
+  box-sizing: border-box;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  box-shadow: 0 8px 30px #0003;
+  color: var(--text);
+  font: 11px var(--ui);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.voice-recorder[hidden] {
+  display: none;
+}
+.voice-recorder-indicator {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #d33;
+  animation: voice-record-pulse 1.2s ease-in-out infinite;
+}
+.voice-recorder time {
+  min-width: 34px;
+  color: var(--muted);
+  font: 11px var(--mono);
+}
+.voice-recorder button {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font: 11px var(--ui);
+}
+.voice-recorder button.primary {
+  border-color: #d33;
+  color: #d33;
+}
+@keyframes voice-record-pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 .journal-entry {
   margin: 0 0 78px;
@@ -3520,6 +3603,11 @@ svg {
     width: 100%;
     box-sizing: border-box;
     padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--bg) 94%, transparent);
     box-shadow: 0 -6px 24px #0002;
@@ -3530,9 +3618,9 @@ svg {
     padding-bottom: 4px;
   }
   .mobile-block-toolbar button {
-    min-width: 0;
+    min-width: 42px;
     height: 36px;
-    flex: 1;
+    flex: 1 0 42px;
     display: grid;
     place-items: center;
     padding: 0;

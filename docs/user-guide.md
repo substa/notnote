@@ -99,6 +99,7 @@ Inside a graph block, type `/` to open inline commands:
 | `/tomorrow` | Inserts a reference to tomorrow's journal. |
 | `/date picker` | Opens the date picker and inserts a reference to the selected journal date. |
 | `/upload` | Uploads a file to `assets/` and inserts its Markdown link. |
+| `/record` | Records a voice note, saves it to `assets/`, and embeds its audio player. |
 
 Type `<` in a graph block to use structural commands:
 
@@ -294,6 +295,7 @@ Previous journal pages appear below today's entry and load progressively while s
 | Insert tomorrow's journal reference | `/tomorrow` |
 | Insert a selected journal date | `/date picker` |
 | Upload an attachment to `assets/` and insert its Markdown link | `/upload` |
+| Record and embed a voice note | `/record` |
 | Previous page | `Alt + ←` |
 | Next page | `Alt + →` |
 
@@ -383,6 +385,8 @@ When running through `server.py`:
 ## Assets
 
 Use `/upload` inside a graph block to select any file. notd stores it in the graph root’s `assets/` directory, preserves the original name when available, and inserts a Markdown link; images, audio, and video use image Markdown automatically. Audio and video references written with `![](...)` are shown as native players. Trusted iframe embeds from YouTube, Vimeo, Spotify, and SoundCloud are also rendered. If a filename already exists, notd appends `-1`, `-2`, and so on.
+
+Use `/record` to request microphone access and begin a voice note. Select **Stop & embed** to save the recording and insert its audio player in the current block, or **Cancel** to discard it. Click the space to the right of an embedded audio player to edit its block, then press `Enter` to continue in a new block. On mobile, the microphone button in the block toolbar starts and stops the same recorder. The toolbar scrolls horizontally when its actions do not fit. Recordings use the browser's supported audio container—typically M4A on Safari and WebM audio on Chromium. iOS browsers without `MediaRecorder` fall back to WAV recording through the Web Audio API. Microphone access requires HTTPS or localhost.
 
 ```markdown
 ![Photo](/assets/photo.png)

@@ -740,6 +740,17 @@
         </button>
         <button
           type="button"
+          data-block-action="record"
+          aria-label="Record voice note"
+          title="Record voice note"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="12" rx="3" />
+            <path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6" />
+          </svg>
+        </button>
+        <button
+          type="button"
           data-block-action="undo"
           aria-label="Undo"
           title="Undo"
@@ -773,6 +784,21 @@
           title="Insert (( ))"
         >
           <span aria-hidden="true">()</span>
+        </button>
+      </div>
+      <div
+        id="voiceRecorder"
+        class="voice-recorder"
+        role="status"
+        aria-live="polite"
+        hidden
+      >
+        <span class="voice-recorder-indicator" aria-hidden="true"></span>
+        <strong>Recording</strong>
+        <time id="voiceRecorderTime">00:00</time>
+        <button type="button" data-voice-recording="cancel">Cancel</button>
+        <button type="button" class="primary" data-voice-recording="save">
+          Stop &amp; embed
         </button>
       </div>
       <div id="toast" class="toast" role="status"></div>
