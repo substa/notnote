@@ -8,7 +8,7 @@ const context = { crypto: webcrypto };
 context.window = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync(new URL('../graph.js', `file://${__filename}`), 'utf8'), context);
-const Graph = context.NotdGraph;
+const Graph = context.NotnoteGraph;
 
 test('parses and serializes nested Logseq blocks', () => {
   const markdown = 'title:: Project\n\n- parent [[Other]]\n  id:: abcdefgh-1234\n  - child\n- TODO next\n';

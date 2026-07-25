@@ -1,5 +1,5 @@
 @font-face {
-  font-family: NotdMono;
+  font-family: NotnoteMono;
   src: local("SFMono-Regular"), local("Menlo"), local("Consolas");
 }
 :root {
@@ -13,7 +13,7 @@
   --selection: #c5def3;
   --code: #f4f5f6;
   --quote: #858b92;
-  --notd-width: 780px;
+  --notnote-width: 780px;
   --ui:
     Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
@@ -22,7 +22,7 @@
   --heading:
     "New York", "Iowan Old Style", Baskerville, "Palatino Linotype", Palatino,
     Georgia, serif;
-  --mono: NotdMono, "SFMono-Regular", Consolas, monospace;
+  --mono: NotnoteMono, "SFMono-Regular", Consolas, monospace;
 }
 * {
   box-sizing: border-box;
@@ -227,7 +227,7 @@ svg {
   font-size: 11px;
   font-weight: 600;
 }
-.notd-wrap {
+.notnote-wrap {
   position: relative;
   min-width: 0;
   max-width: 100%;
@@ -238,7 +238,7 @@ svg {
 }
 .editor,
 .source-editor {
-  width: min(var(--notd-width), calc(100% - 80px));
+  width: min(var(--notnote-width), calc(100% - 80px));
   margin: 0 auto;
   min-height: 100%;
   padding: 66px 0 140px;
@@ -1092,7 +1092,7 @@ svg {
   .workspace {
     position: static;
   }
-  .notd-wrap {
+  .notnote-wrap {
     overflow: visible;
   }
   .editor {
@@ -1414,7 +1414,7 @@ svg {
   color: var(--text);
 }
 .outliner {
-  width: min(var(--notd-width), calc(100% - 80px));
+  width: min(var(--notnote-width), calc(100% - 80px));
   min-height: 100%;
   margin: 0 auto;
   padding: 52px 0 150px;

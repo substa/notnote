@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serve notd and an optional writable graph over HTTP.
+"""Serve notnote and an optional writable graph over HTTP.
 
 The graph API is intended for trusted local networks. Add application authentication
 before exposing the service beyond a controlled network.
@@ -100,7 +100,7 @@ STATIC_FILES = {
     "/manifest.webmanifest",
     "/docs/user-guide.md",
     "/docs/deployment.md",
-    "/assets/icons/notd.svg",
+    "/assets/icons/notnote.svg",
     "/assets/icons/favicon.ico",
     "/assets/icons/favicon-16x16.png",
     "/assets/icons/favicon-32x32.png",
@@ -153,7 +153,7 @@ class GraphWatcher(threading.Thread):
     """Poll graph metadata and publish only path and revision changes."""
 
     def __init__(self, graph: Path, broker: EventBroker, on_change=None) -> None:
-        super().__init__(name="notd-graph-watcher", daemon=True)
+        super().__init__(name="notnote-graph-watcher", daemon=True)
         self.graph = graph
         self.broker = broker
         self.on_change = on_change
@@ -250,7 +250,7 @@ class GitSyncManager:
 
     def _settings(self) -> dict:
         try:
-            settings = json.loads((self.graph / ".notd" / "settings.json").read_text(encoding="utf-8"))
+            settings = json.loads((self.graph / ".notnote" / "settings.json").read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError):
             return {}
         value = settings.get("gitSync", {}) if isinstance(settings, dict) else {}
@@ -314,7 +314,7 @@ class GitSyncManager:
                 pass
         parts = relative.parts
         value = relative.as_posix()
-        if value == ".notd/settings.json":
+        if value == ".notnote/settings.json":
             return "graph settings"
         if parts and parts[0] == "assets":
             return f"asset {'/'.join(parts[1:])}"
@@ -462,10 +462,10 @@ def journal_config(graph: Path) -> dict[str, str]:
     }
 
 
-class NotdHandler(SimpleHTTPRequestHandler):
+class NotnoteHandler(SimpleHTTPRequestHandler):
     """Serve the static shell and a same-origin, graph-scoped JSON API."""
 
-    server_version = "notd/1"
+    server_version = "notnote/1"
     protocol_version = "HTTP/1.1"
 
     @property
@@ -764,7 +764,7 @@ class NotdHandler(SimpleHTTPRequestHandler):
                     return self.json_response({"available": False, "message": "Git sync is unavailable"})
                 return self.json_response(self.git_sync.status())
             if parsed.path == "/api/graph/settings":
-                target = self.graph / ".notd" / "settings.json"
+                target = self.graph / ".notnote" / "settings.json"
                 if not target.is_file():
                     raise FileNotFoundError("settings.json")
                 settings = json.loads(target.read_text(encoding="utf-8"))
@@ -968,7 +968,7 @@ class NotdHandler(SimpleHTTPRequestHandler):
                     raise ValueError("Graph settings must be a JSON object")
                 content = json.dumps(settings, ensure_ascii=False, indent=2) + "\n"
                 with self.server.mutation_lock:  # type: ignore[attr-defined]
-                    self.atomic_write(self.graph / ".notd" / "settings.json", content)
+                    self.atomic_write(self.graph / ".notnote" / "settings.json", content)
                 self.git_sync and self.git_sync.schedule()
                 return self.json_response({"saved": True})
             except (ValueError, OSError, UnicodeError, json.JSONDecodeError) as error:
@@ -990,7 +990,7 @@ class NotdHandler(SimpleHTTPRequestHandler):
                     raise ValueError("Incomplete upload")
                 target = self.write_asset(target, content)
                 relative = target.relative_to(self.graph).as_posix()
-                self.broker.publish({"type": "asset", "path": relative, "clientId": self.headers.get("X-Notd-Client")})
+                self.broker.publish({"type": "asset", "path": relative, "clientId": self.headers.get("X-Notnote-Client")})
                 self.git_sync and self.git_sync.schedule()
                 return self.json_response({"path": relative})
             except (ValueError, OSError) as error:
@@ -1050,7 +1050,7 @@ class NotdHandler(SimpleHTTPRequestHandler):
                     raise FileNotFoundError(raw_path)
                 target.unlink()
             relative = target.relative_to(self.graph).as_posix()
-            self.broker.publish({"type": "asset-deleted", "path": relative, "clientId": self.headers.get("X-Notd-Client")})
+            self.broker.publish({"type": "asset-deleted", "path": relative, "clientId": self.headers.get("X-Notnote-Client")})
             self.git_sync and self.git_sync.schedule()
             self.json_response({"path": relative})
         except FileNotFoundError:
@@ -1166,8 +1166,8 @@ class NotdHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Serve notd and a writable local graph")
-    parser.add_argument("--host", default="127.0.0.1", help="Use 0.0.0.0 to make notd reachable on the LAN")
+    parser = argparse.ArgumentParser(description="Serve notnote and a writable local graph")
+    parser.add_argument("--host", default="127.0.0.1", help="Use 0.0.0.0 to make notnote reachable on the LAN")
     parser.add_argument("--port", type=int, default=4173)
     parser.add_argument("--graph", type=Path, help="Path to a Logseq graph exposed through the API")
     arguments = parser.parse_args()
@@ -1177,7 +1177,7 @@ def main() -> None:
     if graph and not graph.is_dir():
         parser.error(f"Graph directory does not exist: {graph}")
     def handler(*args, **kwargs):
-        return NotdHandler(*args, directory=str(app_directory), **kwargs)
+        return NotnoteHandler(*args, directory=str(app_directory), **kwargs)
 
     server = ThreadingHTTPServer((arguments.host, arguments.port), handler)
     server.graph = graph  # type: ignore[attr-defined]
@@ -1190,7 +1190,7 @@ def main() -> None:
     if server.watcher:
         server.watcher.start()
     location = f"http://{arguments.host}:{arguments.port}"
-    print(f"notd: {location}")
+    print(f"notnote: {location}")
     print(f"graph: {graph if graph else 'disabled'}")
     if arguments.host not in {"127.0.0.1", "localhost", "::1"} and graph:
         print("warning: the writable graph has no authentication; use only on a trusted LAN")

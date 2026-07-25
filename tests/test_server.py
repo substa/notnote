@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from server import (
     GitSyncManager,
-    NotdHandler,
+    NotnoteHandler,
     content_mentions_asset,
     referenced_asset_paths,
 )
@@ -21,7 +21,7 @@ class GraphAssetPathTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.graph = Path(self.temporary.name).resolve()
         (self.graph / "assets" / "images").mkdir(parents=True)
-        self.handler = object.__new__(NotdHandler)
+        self.handler = object.__new__(NotnoteHandler)
         self.handler.server = SimpleNamespace(graph=self.graph)
 
     def tearDown(self):
@@ -96,14 +96,14 @@ class GitSyncManagerTests(unittest.TestCase):
         self.root = Path(self.temporary.name).resolve()
         self.graph = self.root / "graph"
         (self.graph / "pages").mkdir(parents=True)
-        (self.graph / ".notd").mkdir()
+        (self.graph / ".notnote").mkdir()
         (self.graph / "pages" / "note.md").write_text("- Initial\n")
-        (self.graph / ".notd" / "settings.json").write_text(
+        (self.graph / ".notnote" / "settings.json").write_text(
             json.dumps({"gitSync": {"autoCommit": True, "autoPush": False, "debounceSeconds": 10}})
         )
         self.git("init", "--initial-branch=main")
-        self.git("config", "user.name", "notd test")
-        self.git("config", "user.email", "notd@example.invalid")
+        self.git("config", "user.name", "notnote test")
+        self.git("config", "user.email", "notnote@example.invalid")
         self.git("add", ".")
         self.git("commit", "-m", "Initial graph")
         self.manager = GitSyncManager(self.graph, threading.Lock())
@@ -126,7 +126,7 @@ class GitSyncManagerTests(unittest.TestCase):
     def test_reads_page_content_from_a_previous_commit(self):
         commit = self.git("rev-parse", "HEAD")
         (self.graph / "pages" / "note.md").write_text("- Current\n")
-        handler = object.__new__(NotdHandler)
+        handler = object.__new__(NotnoteHandler)
         handler.server = SimpleNamespace(graph=self.graph)
 
         content = handler.git_file_content(
@@ -156,7 +156,7 @@ class GitSyncManagerTests(unittest.TestCase):
             ("M\0pages/Earth.md\0", ".", "Update Earth"),
             ("A\0journals/2026_07_22.md\0", ".", "Add journal 2026-07-22"),
             ("A\0assets/images/cover.png\0", ".", "Add asset images/cover.png"),
-            ("M\0graph/.notd/settings.json\0", "graph", "Update graph settings"),
+            ("M\0graph/.notnote/settings.json\0", "graph", "Update graph settings"),
             ("R100\0pages/Old.md\0pages/New.md\0", ".", "Rename Old to New"),
             (
                 "M\0pages/Earth.md\0M\0pages/Marvin.md\0",

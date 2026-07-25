@@ -1,6 +1,6 @@
 {
-  "name": "notd — Markdown editor",
-  "short_name": "notd",
+  "name": "notnote — Markdown editor",
+  "short_name": "notnote",
   "description": "A minimal, local, offline Markdown editor.",
   "start_url": "./",
   "scope": "./",
@@ -9,7 +9,7 @@
   "theme_color": "#fdfcfb",
   "icons": [
     {
-      "src": "assets/icons/notd.svg",
+      "src": "assets/icons/notnote.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

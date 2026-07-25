@@ -1,11 +1,11 @@
 // Keep the application shell separate from bounded, user-opened graph assets.
-const CACHE = "notd-editor-v73";
-const ASSET_CACHE = "notd-graph-assets-v1";
-const SETTINGS_CACHE = "notd-pwa-settings-v1";
+const CACHE = "notnote-editor-v73";
+const ASSET_CACHE = "notnote-graph-assets-v1";
+const SETTINGS_CACHE = "notnote-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;
 const DEFAULT_MAX_ASSET_BYTES = 200 * 1024 * 1024;
 const ASSET_CACHE_SETTINGS_URL = new URL(
-  "./__notd_pwa_settings__",
+  "./__notnote_pwa_settings__",
   self.registration.scope,
 ).href;
 let maxAssetBytesPromise = null;
@@ -19,7 +19,7 @@ const ASSETS = [
   "./docs/user-guide.md",
   "./docs/deployment.md",
   "./manifest.webmanifest",
-  "./assets/icons/notd.svg",
+  "./assets/icons/notnote.svg",
   "./assets/icons/favicon.ico",
   "./assets/icons/favicon-16x16.png",
   "./assets/icons/favicon-32x32.png",

@@ -26,6 +26,6 @@ jobs:
       - name: JavaScript tests
         run: node --test tests/*.test.js
       - name: Build default container
-        run: docker build --file docker/Dockerfile --target runtime -t notd:test .
+        run: docker build --file docker/Dockerfile --target runtime -t notnote:test .
       - name: Build Git-enabled container
-        run: docker build --file docker/Dockerfile --target runtime-git -t notd:test-git .
+        run: docker build --file docker/Dockerfile --target runtime-git -t notnote:test-git .

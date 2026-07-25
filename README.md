@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/icons/notd.svg" width="144" height="144" alt="notd logo">
+  <img src="assets/icons/notnote.svg" width="144" height="144" alt="notnote logo">
 </p>
 
-**notd** is a minimal, private, markdown outliner. It supports standalone documents, filesystem-backed graphs, daily journals, references, tasks, attachments, offline use, and an optional server for sharing one graph across trusted devices.
+**notnote** is a minimal, private, markdown outliner. It supports standalone documents, filesystem-backed graphs, daily journals, references, tasks, attachments, offline use, and an optional server for sharing one graph across trusted devices.
 <br><br>
 
 > [!IMPORTANT]
-> **Disclaimer — notd is deliberately and strongly opinionated.**
+> **Disclaimer — notnote is deliberately and strongly opinionated.**
 <br>For years, I’ve used [Logseq](https://github.com/logseq/logseq) to keep track of all my ideas, tasks, activities, works, clients, and any other information worth being able to search and revisit even years later. Over time, I refined my workflow to handle a large volume of data while relying on as few plugins or extra features as possible. Recently, Logseq decided to change direction with its database version, so I figured it was time to make use of all the Markdown files I’ve accumulated over the years with a simpler tool that works exactly the way I need it to.
 <br>No, I'm not kidding — you probably shouldn't use this software, unless, unfortunately for you, you happen to share the exact same mindset as me.
 <br><br>
@@ -14,7 +14,7 @@
 
 ## Screenshot
 
-![notd journal on Towel Day](assets/screenshots/notd.png)
+![notnote journal on Towel Day](assets/screenshots/notnote.png)
 
 
 ## Principles
@@ -51,13 +51,13 @@ python3 -m http.server 4173
 
 Open [http://localhost:4173](http://localhost:4173).
 
-Python 3.10 or newer is required only for `server.py`. Node.js 18 or newer is required only to run the JavaScript tests. **Git is not installed or managed by notd:** install it separately only if you want page history, automatic commits, or repository-based review. Editing, saving, synchronization, offline use, and backups all continue to work without Git.
+Python 3.10 or newer is required only for `server.py`. Node.js 18 or newer is required only to run the JavaScript tests. **Git is not installed or managed by notnote:** install it separately only if you want page history, automatic commits, or repository-based review. Editing, saving, synchronization, offline use, and backups all continue to work without Git.
 
 The single-document editor works in current browsers. Direct graph access uses the File System Access API.
 
 ## Working with a local graph
 
-Open the command palette and select **Open local graph**, then choose a directory. notd reads Markdown files at the graph root and in `pages/` and `journals/`.
+Open the command palette and select **Open local graph**, then choose a directory. notnote reads Markdown files at the graph root and in `pages/` and `journals/`.
 
 Typical outliner controls include:
 
@@ -88,7 +88,7 @@ The graph API does not provide application-level authentication. Do not expose i
 
 ## Privacy and storage
 
-In standalone mode, document copies and preferences are stored in browser storage. In local graph mode, recovery drafts and the selected directory handle are stored in IndexedDB. Graph preferences are written to `.notd/settings.json` inside the graph.
+In standalone mode, document copies and preferences are stored in browser storage. In local graph mode, recovery drafts and the selected directory handle are stored in IndexedDB. Graph preferences are written to `.notnote/settings.json` inside the graph.
 
 When the optional server is used, content is exchanged only with that server. Remote graph replicas and pending offline operations may remain in IndexedDB on each client. Markdown files always remain authoritative.
 
@@ -96,7 +96,7 @@ No analytics, trackers, hosted fonts, or third-party content services are includ
 
 ## Offline support
 
-notd installs as a Progressive Web App when served from HTTPS or localhost. The application shell is cached by the Service Worker. Server-backed graphs also keep a local replica and queue supported edits while offline, then synchronize after reconnection.
+notnote installs as a Progressive Web App when served from HTTPS or localhost. The application shell is cached by the Service Worker. Server-backed graphs also keep a local replica and queue supported edits while offline, then synchronize after reconnection.
 
 After deploying an update, close and reopen the installed application so the latest Service Worker can take control.
 
@@ -151,4 +151,4 @@ For internet access, use authentication and TLS at a reverse proxy, keep the Pyt
 
 ## Scope
 
-notd is maintained as a focused personal tool rather than a general-purpose knowledge platform. Features that add persistent interface complexity, broad configuration surfaces, plugin systems, or hosted dependencies may be outside its intended scope.
+notnote is maintained as a focused personal tool rather than a general-purpose knowledge platform. Features that add persistent interface complexity, broad configuration surfaces, plugin systems, or hosted dependencies may be outside its intended scope.

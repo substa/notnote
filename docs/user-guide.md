@@ -1,6 +1,6 @@
-# notd — Documentation
+# notnote — Documentation
 
-notd is a local Markdown editor, block outliner, and reader for file-based graphs. Markdown files remain the source of truth; notd does not introduce a proprietary data format.
+notnote is a local Markdown editor, block outliner, and reader for file-based graphs. Markdown files remain the source of truth; notnote does not introduce a proprietary data format.
 
 ## Quick start
 
@@ -27,11 +27,11 @@ Open `http://localhost:4176` on the server or `http://SERVER-IP:4176` from anoth
 
 ## Installation and PWA
 
-notd can run in a normal browser tab or as an installed Progressive Web App. Installation requires HTTPS, except on `localhost`.
+notnote can run in a normal browser tab or as an installed Progressive Web App. Installation requires HTTPS, except on `localhost`.
 
 ### Docker
 
-The `docker/` directory contains the Dockerfile, Compose stack, environment template, and a complete [deployment guide](./deployment.md). The container exposes notd only on server loopback for diagnostics and on a private Docker network shared with Newt. Pangolin (or different access platform) must require authentication before forwarding traffic to `http://notd:4176`; never expose the writable Python API directly to the internet.
+The `docker/` directory contains the Dockerfile, Compose stack, environment template, and a complete [deployment guide](./deployment.md). The container exposes notnote only on server loopback for diagnostics and on a private Docker network shared with Newt. Pangolin (or different access platform) must require authentication before forwarding traffic to `http://notnote:4176`; never expose the writable Python API directly to the internet.
 
 ## Command palette
 
@@ -51,7 +51,7 @@ The command palette supports the following application commands. Commands marked
 | Command | Scope | What it does |
 | --- | --- | --- |
 | **Settings** | Any | Opens the General settings panel. |
-| **Documentation** | Any | Opens this user guide inside notd. |
+| **Documentation** | Any | Opens this user guide inside notnote. |
 | **Open local graph** | Any | Selects a local graph folder through the browser File System Access API. |
 | **Sync all notes and backlinks** | Graph | Rescans Markdown notes and rebuilds page, block, backlink, and autocomplete indexes. |
 | **Clean orphaned assets** | Graph | Reviews and, after confirmation, deletes files in `assets/` that are not referenced by any note. |
@@ -81,7 +81,7 @@ The palette also produces contextual results rather than fixed commands:
 | **Outline: _heading_** | Jumps to a heading found in the current Markdown document. |
 | **Page or alias result** | Opens a graph page; aliases show and open their canonical page. |
 | **Block result** | Opens the source page and focuses the matching block. Block search starts after two typed characters. |
-| **Recent document result** | Opens a standalone document stored by notd. |
+| **Recent document result** | Opens a standalone document stored by notnote. |
 | **Create page “…”** | Creates a graph page when the typed title does not already exist. |
 
 ### Inline commands
@@ -124,18 +124,18 @@ Open the page menu from the gear icon at the right side of the footer. It provid
 - **Shortcuts** lists keyboard commands by section. Search the list, select a shortcut, and press a new key combination to replace it. Use **Reset** to restore its default.
 - **Documentation** contains this complete guide. Its **On this page** menu jumps directly to every main section; on mobile it appears as a section selector.
 
-When a graph is open, these preferences and custom shortcuts are saved in `.notd/settings.json` and follow the graph across devices.
+When a graph is open, these preferences and custom shortcuts are saved in `.notnote/settings.json` and follow the graph across devices.
 
 
 ## Graphs
 
 ### Offline PWA use
 
-After a server graph has been opened successfully at least once, notd keeps a local replica of its notes and settings in IndexedDB. The installed PWA can then open the graph without a connection, edit existing notes, and create new pages or journals. Changes are applied immediately to the local index and placed in a persistent synchronization queue.
+After a server graph has been opened successfully at least once, notnote keeps a local replica of its notes and settings in IndexedDB. The installed PWA can then open the graph without a connection, edit existing notes, and create new pages or journals. Changes are applied immediately to the local index and placed in a persistent synchronization queue.
 
 The footer reports **Offline** and the number of pending changes. Synchronization starts when the browser reports that it is online, when the PWA returns to the foreground, or when its window receives focus. This does not rely on Background Sync, which is unavailable on iOS; the PWA must be open or resumed for synchronization to run.
 
-Each queued write retains the server revision from which it started. If that revision is still current, the change is uploaded automatically. If the server version changed in the meantime, notd preserves the local operation and reports a synchronization conflict instead of overwriting either version. Page renaming, deletion, and attachment upload currently require a connection.
+Each queued write retains the server revision from which it started. If that revision is still current, the change is uploaded automatically. If the server version changed in the meantime, notnote preserves the local operation and reports a synchronization conflict instead of overwriting either version. Page renaming, deletion, and attachment upload currently require a connection.
 
 The Service Worker caches the application shell and, on demand, graph attachments that have been opened successfully. Cached images, documents, audio, and video remain available offline; media range requests are served from the complete cached file. In **Settings → General**, **Offline attachment cache** sets the storage limit for the current device (200 MB by default). The cache also keeps at most 100 files and removes the oldest entries when either limit is exceeded. Reducing the setting trims the existing cache immediately. Storage remains best-effort because the browser, particularly iOS, can enforce a smaller quota or reclaim site data. Notes and pending operations are stored separately in IndexedDB rather than by indiscriminately caching graph API responses.
 
@@ -149,7 +149,7 @@ journals/
 assets/
 ```
 
-notd reads `.md` and `.markdown` files from the graph root, `pages/`, and `journals/`. It recognizes page titles, aliases, properties, page references, block UUIDs, and journal dates. Aliases declared with `alias::` are searchable in the command palette; an alias result displays the canonical page title and opens that page. `key:: value` properties—including custom fields such as `company::` and `name::`—remain preserved in Markdown source but are hidden from the formatted page when they have no visual representation.
+notnote reads `.md` and `.markdown` files from the graph root, `pages/`, and `journals/`. It recognizes page titles, aliases, properties, page references, block UUIDs, and journal dates. Aliases declared with `alias::` are searchable in the command palette; an alias result displays the canonical page title and opens that page. `key:: value` properties—including custom fields such as `company::` and `name::`—remain preserved in Markdown source but are hidden from the formatted page when they have no visual representation.
 
 ### Open a page
 
@@ -157,7 +157,7 @@ Open the command palette and search for its title. Global search also includes b
 
 ### Create a page
 
-Type `[[`. notd immediately inserts `]]` and leaves the caret between the brackets:
+Type `[[`. notnote immediately inserts `]]` and leaves the caret between the brackets:
 
 ```text
 [[|]]
@@ -167,11 +167,11 @@ Enter at least two characters to display page suggestions. If the page does not 
 
 ### Rename a page
 
-Use **Rename document** or `F2`, edit the title, then select the minimal checkmark icon to save. The adjacent trash icon deletes the current page after confirmation. notd can update matching `[[...]]` references throughout the graph. Case-only changes such as `test` to `Test` are supported, including on case-insensitive filesystems. Journal pages cannot be renamed or deleted, preserving journal invariants.
+Use **Rename document** or `F2`, edit the title, then select the minimal checkmark icon to save. The adjacent trash icon deletes the current page after confirmation. notnote can update matching `[[...]]` references throughout the graph. Case-only changes such as `test` to `Test` are supported, including on case-insensitive filesystems. Journal pages cannot be renamed or deleted, preserving journal invariants.
 
 ### Page history
 
-Page history and automatic Git snapshots are optional. Every editing, saving, synchronization, offline, and backup feature continues to work when Git is absent. History is available only when the graph directory is already a Git repository, Git is installed separately in the `server.py` environment, and notd is running through `server.py`. notd does not install Git or initialize a repository automatically.
+Page history and automatic Git snapshots are optional. Every editing, saving, synchronization, offline, and backup feature continues to work when Git is absent. History is available only when the graph directory is already a Git repository, Git is installed separately in the `server.py` environment, and notnote is running through `server.py`. notnote does not install Git or initialize a repository automatically.
 
 For a graph that is not yet under version control, [install Git separately](https://git-scm.com/downloads) and run the following commands once, replacing the path with the graph's location. Docker users must also select the optional `runtime-git` image target described in the [deployment guide](./deployment.md):
 
@@ -184,15 +184,15 @@ git commit -m "Initialize graph history"
 
 If Git requests an author name or email, configure them by following the official [first-time Git setup](https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup). More information about repository creation is available in the [`git init` documentation](https://git-scm.com/docs/git-init).
 
-After the initial commit, open **Settings → Git**. Automatic commits can group nearby graph changes into one snapshot after a delay of 5, 10, 30, or 60 seconds. Commit messages describe the staged changes, for example `Update Earth`, `Add journal 2026-07-22`, `Rename Old page to New page`, or `Update Earth and Marvin`. **Push after commit** publishes each snapshot through the current branch's configured upstream; Git credentials must already be available to the operating-system user running `server.py`. notd never stores Git credentials.
+After the initial commit, open **Settings → Git**. Automatic commits can group nearby graph changes into one snapshot after a delay of 5, 10, 30, or 60 seconds. Commit messages describe the staged changes, for example `Update Earth`, `Add journal 2026-07-22`, `Rename Old page to New page`, or `Update Earth and Marvin`. **Push after commit** publishes each snapshot through the current branch's configured upstream; Git credentials must already be available to the operating-system user running `server.py`. notnote never stores Git credentials.
 
-Use **Commit now** or **Commit and push now** to create a snapshot without waiting for the delay. Changes made externally by other applications are detected and included. Repository hooks are disabled for commits created by notd, preventing older `pre-commit` or `post-commit` automation from running twice.
+Use **Commit now** or **Commit and push now** to create a snapshot without waiting for the delay. Changes made externally by other applications are detected and included. Repository hooks are disabled for commits created by notnote, preventing older `pre-commit` or `post-commit` automation from running twice.
 
-Automatic Git synchronization does not pull, rebase, force-push, or resolve conflicts. All editing devices are expected to use the same notd server. If remote history is changed independently, reconcile it manually before enabling push again. A push failure does not affect the saved Markdown files or the local commit.
+Automatic Git synchronization does not pull, rebase, force-push, or resolve conflicts. All editing devices are expected to use the same notnote server. If remote history is changed independently, reconcile it manually before enabling push again. A push failure does not affect the saved Markdown files or the local commit.
 
 After at least one commit exists, choose **Page history** from the footer menu to display up to 100 commits for the current Markdown file. Each entry shows the short commit hash, subject, author, and date. Expand a commit to load and display its unified diff for that page; diffs are fetched only when requested. Added lines are highlighted in green, removed lines in red, hunk headers in cyan, and Git metadata uses the same syntax palette as code blocks. Select **Restore this version** and confirm to replace the current page with the complete Markdown content stored in that commit. The restore is written as a normal page change, so it can become a new snapshot without rewriting Git history. Rename history is followed when Git can detect it, and a notice appears when the working copy has uncommitted changes; restoring while that notice is present replaces those uncommitted changes.
 
-The browser cannot inspect Git repositories opened directly through the File System Access API, so this feature is unavailable in direct local graph mode. The Docker image includes Git. notd invokes Git with argument arrays rather than a shell and restricts the requested path to the configured graph.
+The browser cannot inspect Git repositories opened directly through the File System Access API, so this feature is unavailable in direct local graph mode. The Docker image includes Git. notnote invokes Git with argument arrays rather than a shell and restricts the requested path to the configured graph.
 
 ## Blocks and outliner
 
@@ -239,7 +239,7 @@ TODO → DOING → DONE → TODO
 
 Changes made from a task summary or dashboard are written back to the task's original Markdown page. Before a task moves to another section or disappears from the current filtered list, its row briefly displays **Completed**, **In progress**, or **To do** to confirm the new state.
 
-Dashboard tasks with a scheduled date are ordered from the nearest date to the farthest. Clicking a scheduled date opens the mini calendar on that month with the currently assigned day selected. Tasks in progress appear at the bottom of **Today** in the journal summary, mini calendar, and complete dashboard. When completed, they remain visible as done in the daily view for the rest of the day, including tasks created on earlier dates. Completed tasks are ordered by completion time, newest first. When notd marks a task as `DONE`, it records a hidden `completed-at::` property in the block; existing completed tasks without this property fall back to their journal date or page modification time.
+Dashboard tasks with a scheduled date are ordered from the nearest date to the farthest. Clicking a scheduled date opens the mini calendar on that month with the currently assigned day selected. Tasks in progress appear at the bottom of **Today** in the journal summary, mini calendar, and complete dashboard. When completed, they remain visible as done in the daily view for the rest of the day, including tasks created on earlier dates. Completed tasks are ordered by completion time, newest first. When notnote marks a task as `DONE`, it records a hidden `completed-at::` property in the block; existing completed tasks without this property fall back to their journal date or page modification time.
 
 Task-state changes participate in the regular undo/redo history, including changes made from summaries and dashboards. Use `⌘/Ctrl + Z` to restore the previous state and `⌘/Ctrl + Shift + Z` (or `⌘/Ctrl + Y`) to reapply it. Undo and redo update the task in its original Markdown page and show a confirmation message with the restored state.
 
@@ -257,7 +257,7 @@ Click a reference to open its page. A missing page opens as a virtual page so it
 
 ### Block references
 
-Select a block and run **Copy block reference**. When required, notd adds:
+Select a block and run **Copy block reference**. When required, notnote adds:
 
 ```text
 id:: UUID
@@ -275,7 +275,7 @@ Single pages show references grouped by source page. The source title and all ma
 
 ## Journals
 
-Opening a graph displays today's journal. If its file does not exist, notd creates it automatically.
+Opening a graph displays today's journal. If its file does not exist, notnote creates it automatically.
 
 The default filename is:
 
@@ -310,7 +310,7 @@ Type `<` to use structural insertion commands:
 
 ## Vim mode
 
-Run **Toggle Vim mode** from the command palette. For an open graph, the setting persists in `.notd/settings.json` and follows the graph across devices.
+Run **Toggle Vim mode** from the command palette. For an open graph, the setting persists in `.notnote/settings.json` and follows the graph across devices.
 
 ### Modes
 
@@ -343,7 +343,7 @@ Press `?` in Normal mode to open this documentation.
 
 ## Navigation
 
-notd keeps page history, including journals, zoom state, and scroll position:
+notnote keeps page history, including journals, zoom state, and scroll position:
 
 - `Alt + ←`: back;
 - `Alt + →`: forward.
@@ -352,7 +352,7 @@ The graph name in the top-left corner opens the command palette.
 
 ## Data storage and backups
 
-Markdown files remain the authoritative graph data. notd stores graph preferences in `.notd/settings.json`; this includes appearance, shortcuts, Vim mode, recent pages, collapsed blocks, and journal formats. The folder can be included in normal graph backups.
+Markdown files remain the authoritative graph data. notnote stores graph preferences in `.notnote/settings.json`; this includes appearance, shortcuts, Vim mode, recent pages, collapsed blocks, and journal formats. The folder can be included in normal graph backups.
 
 The browser stores recovery drafts, the selected local directory handle, remote offline replicas, and queued synchronization operations in IndexedDB. Standalone documents and their local preferences use browser storage. Clearing site data removes those browser-only copies and permissions, but does not delete Markdown files from a selected graph directory.
 
@@ -360,7 +360,7 @@ Keep regular backups before bulk renames, asset cleanup, or simultaneous editing
 
 ## Saving and conflicts
 
-Changes are saved automatically after a short delay. Before writing to the filesystem, notd stores a recovery draft in IndexedDB.
+Changes are saved automatically after a short delay. Before writing to the filesystem, notnote stores a recovery draft in IndexedDB.
 
 Possible states include:
 
@@ -370,7 +370,7 @@ Possible states include:
 - **Conflict**;
 - **Save failed**.
 
-If a file changes externally while local edits are pending, notd does not overwrite it automatically. A manual save lets the user explicitly choose whether to replace the disk version.
+If a file changes externally while local edits are pending, notnote does not overwrite it automatically. A manual save lets the user explicitly choose whether to replace the disk version.
 
 ## LAN synchronization
 
@@ -384,7 +384,7 @@ When running through `server.py`:
 
 ## Assets
 
-Use `/upload` inside a graph block to select any file. notd stores it in the graph root’s `assets/` directory, preserves the original name when available, and inserts a Markdown link; images, audio, and video use image Markdown automatically. Audio and video references written with `![](...)` are shown as native players. Trusted iframe embeds from YouTube, Vimeo, Spotify, and SoundCloud are also rendered. If a filename already exists, notd appends `-1`, `-2`, and so on.
+Use `/upload` inside a graph block to select any file. notnote stores it in the graph root’s `assets/` directory, preserves the original name when available, and inserts a Markdown link; images, audio, and video use image Markdown automatically. Audio and video references written with `![](...)` are shown as native players. Trusted iframe embeds from YouTube, Vimeo, Spotify, and SoundCloud are also rendered. If a filename already exists, notnote appends `-1`, `-2`, and so on.
 
 Use `/record` to request microphone access and begin a voice note. Select **Stop & embed** to save the recording and insert its audio player in the current block, or **Cancel** to discard it. Click the space to the right of an embedded audio player to edit its block, then press `Enter` to continue in a new block. Recordings use the browser's supported audio container—typically M4A on Safari and WebM audio on Chromium. iOS browsers without `MediaRecorder` fall back to WAV recording through the Web Audio API. Microphone access requires HTTPS or localhost.
 
@@ -399,7 +399,7 @@ Removing a link or its block does not delete the file. Run **Clean orphaned asse
 
 ## Single-document editor
 
-notd also works without a graph:
+notnote also works without a graph:
 
 - `⌘/Ctrl + N`: new document;
 - `⌘/Ctrl + O`: open Markdown;
@@ -438,14 +438,14 @@ Available themes:
 - Dark
 - System (default), which switches automatically when the operating-system preference changes
 
-For an open graph, the selected theme persists in `.notd/settings.json` and follows the graph across devices.
+For an open graph, the selected theme persists in `.notnote/settings.json` and follows the graph across devices.
 
 Fonts and the main colors for the light and dark themes can be customized in `theme-config.css`. This file is loaded after the application stylesheet, so its CSS variables override the defaults without requiring changes to `styles.css`.
 
 
 ## Privacy and security
 
-In local mode, content is not sent to external services. In LAN mode, content is exchanged only with the configured notd server.
+In local mode, content is not sent to external services. In LAN mode, content is exchanged only with the configured notnote server.
 
 The LAN server:
 
@@ -460,4 +460,4 @@ Back up the graph regularly, especially before bulk renames or concurrent editin
 
 ## Markdown compatibility
 
-notd preserves the essential file-based graph structure: pages, journals, nested blocks, properties, page references, block references, aliases, tags, and assets. Features outside this focused Markdown workflow are not interpreted, while unknown syntax is retained whenever possible.
+notnote preserves the essential file-based graph structure: pages, journals, nested blocks, properties, page references, block references, aliases, tags, and assets. Features outside this focused Markdown workflow are not interpreted, while unknown syntax is retained whenever possible.

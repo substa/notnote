@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const DB_NAME = "notd-graph-v1";
+  const DB_NAME = "notnote-graph-v1";
   const DB_VERSION = 2;
   const HANDLE_KEY = "last-graph";
   const markdownFile = /\.(md|markdown)$/i;
@@ -147,7 +147,7 @@
 
   const newId = () =>
     crypto.randomUUID?.() ||
-    `notd-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    `notnote-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const hash = (value) => {
     let result = 2166136261;
     for (let i = 0; i < value.length; i++)
@@ -536,7 +536,7 @@
   }
 
   class ConflictError extends Error {
-    constructor(message = "The file changed outside notd") {
+    constructor(message = "The file changed outside notnote") {
       super(message);
       this.name = "ConflictError";
     }
@@ -557,7 +557,7 @@
         throw new Error("Directory access is not supported by this browser");
       const handle = await window.showDirectoryPicker({
         mode: "readwrite",
-        id: "notd-graph",
+        id: "notnote-graph",
       });
       const store = new GraphStore(handle);
       if (!(await store.ensurePermission(true)))
@@ -593,7 +593,7 @@
 
     async readSettings() {
       try {
-        const directory = await this.handle.getDirectoryHandle(".notd");
+        const directory = await this.handle.getDirectoryHandle(".notnote");
         const file = await (
           await directory.getFileHandle("settings.json")
         ).getFile();
@@ -614,7 +614,7 @@
     async writeSettings(settings) {
       if (!(await this.ensurePermission(true)))
         throw new Error("Graph is read only");
-      const directory = await this.handle.getDirectoryHandle(".notd", {
+      const directory = await this.handle.getDirectoryHandle(".notnote", {
         create: true,
       });
       const handle = await directory.getFileHandle("settings.json", {
@@ -796,7 +796,7 @@
         // Case-insensitive filesystems return the original handle for a case-only
         // filename change. Move through a temporary file so removing the old name
         // does not also remove the newly written page.
-        const temporaryName = `.notd-case-rename-${newId()}.tmp`;
+        const temporaryName = `.notnote-case-rename-${newId()}.tmp`;
         const temporaryHandle = await directory.getFileHandle(temporaryName, {
           create: true,
         });
@@ -1474,7 +1474,7 @@
           method: "PUT",
           headers: {
             "Content-Type": file.type || "application/octet-stream",
-            "X-Notd-Client": this.clientId,
+            "X-Notnote-Client": this.clientId,
           },
           body: file,
         },
@@ -1502,7 +1502,7 @@
       if (!path.startsWith("assets/")) throw new Error("Invalid asset path");
       const response = await fetch(
         `${this.baseUrl}/asset?path=${encodeURIComponent(path)}`,
-        { method: "DELETE", headers: { "X-Notd-Client": this.clientId } },
+        { method: "DELETE", headers: { "X-Notnote-Client": this.clientId } },
       );
       if (!response.ok) {
         let message = `Graph server error (${response.status})`;
@@ -1799,7 +1799,7 @@
     };
   }
 
-  window.NotdGraph = {
+  window.NotnoteGraph = {
     GraphStore,
     RemoteGraphStore,
     GraphIndex,

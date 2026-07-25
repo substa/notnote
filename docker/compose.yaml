@@ -1,22 +1,22 @@
-name: notd
+name: notnote
 
 services:
-  notd:
+  notnote:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      target: "${NOTD_DOCKER_TARGET:-runtime}"
-    image: notd:local
-    container_name: notd
+      target: "${NOTNOTE_DOCKER_TARGET:-runtime}"
+    image: notnote:local
+    container_name: notnote
     restart: unless-stopped
     init: true
-    user: "${NOTD_UID:-1000}:${NOTD_GID:-1000}"
+    user: "${NOTNOTE_UID:-1000}:${NOTNOTE_GID:-1000}"
     ports:
-      - "127.0.0.1:${NOTD_PORT:-4176}:4176"
+      - "127.0.0.1:${NOTNOTE_PORT:-4176}:4176"
     expose:
       - "4176"
     volumes:
-      - "${NOTD_GRAPH_PATH:?Set NOTD_GRAPH_PATH in .env}:/graph:rw"
+      - "${NOTNOTE_GRAPH_PATH:?Set NOTNOTE_GRAPH_PATH in .env}:/graph:rw"
     networks:
       - pangolin
     read_only: true

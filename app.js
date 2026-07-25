@@ -9,7 +9,7 @@
   const app = $("#app");
   const editor = $("#editor");
   const sourceEditor = $("#sourceEditor");
-  const notdWrap = $("#notdWrap");
+  const notnoteWrap = $("#notnoteWrap");
   const outliner = $("#outliner");
   const blockTree = $("#blockTree");
   const pageHierarchy = $("#pageHierarchy");
@@ -54,7 +54,7 @@
       )
         return;
       const viewport = window.visualViewport;
-      const wrapBounds = notdWrap.getBoundingClientRect();
+      const wrapBounds = notnoteWrap.getBoundingClientRect();
       const toolbarBounds = mobileBlockToolbar.getBoundingClientRect();
       const visibleTop = Math.max(
         wrapBounds.top,
@@ -73,8 +73,8 @@
       else if (bounds.top < visibleTop + padding)
         delta = bounds.top - visibleTop - padding;
       if (Math.abs(delta) > 1)
-        notdWrap.scrollTo({
-          top: Math.max(0, notdWrap.scrollTop + delta),
+        notnoteWrap.scrollTo({
+          top: Math.max(0, notnoteWrap.scrollTop + delta),
           behavior: "smooth",
         });
     });
@@ -111,9 +111,9 @@
   const fileInput = $("#fileInput");
   const assetInput = $("#assetInput");
   const saveState = $("#saveState");
-  const STORAGE_KEY = "notd-markdown-documents-v1";
-  const SETTINGS_KEY = "notd-markdown-settings-v1";
-  const TASK_COMPLETIONS_KEY = "notd-task-completions-v1";
+  const STORAGE_KEY = "notnote-markdown-documents-v1";
+  const SETTINGS_KEY = "notnote-markdown-settings-v1";
+  const TASK_COMPLETIONS_KEY = "notnote-task-completions-v1";
   const localSettings = () => {
     try {
       return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
@@ -419,9 +419,9 @@
   const taskRedoStack = [];
   const WELCOME_VERSION = "11";
 
-  const starter = `# Welcome to notd
+  const starter = `# Welcome to notnote
 
-notd is a minimal **Markdown** editor: everything stays in your browser or in the files you choose to open.
+notnote is a minimal **Markdown** editor: everything stays in your browser or in the files you choose to open.
 
 ## Contextual editing
 
@@ -1068,7 +1068,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (state.graphMode)
       return state.sourceMode
         ? sourceEditor.value
-        : NotdGraph.serializeDocument(state.graphDocument);
+        : NotnoteGraph.serializeDocument(state.graphDocument);
     return state.sourceMode ? sourceEditor.value : editorToMarkdown();
   }
 
@@ -1103,7 +1103,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   ) {
     const settings = currentSettings();
     const collapsed = new Set(settings.graphCollapsed?.[page?.path] || []);
-    NotdGraph.flattenBlocks(document?.blocks).forEach(({ block }) => {
+    NotnoteGraph.flattenBlocks(document?.blocks).forEach(({ block }) => {
       block.collapsed = collapsed.has(block.id);
     });
   }
@@ -1114,7 +1114,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   ) {
     if (!page) return;
     const settings = currentSettings();
-    const ids = NotdGraph.flattenBlocks(document?.blocks)
+    const ids = NotnoteGraph.flattenBlocks(document?.blocks)
       .filter(({ block }) => block.collapsed)
       .map(({ block }) => block.id);
     saveSettings({
@@ -1147,7 +1147,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (!state.graphMode || !state.graphDocument || !state.graphPage) return;
     if (state.sourceMode) return toast("Close Markdown source first");
     commitGraphBlock();
-    const blocks = NotdGraph.flattenBlocks(state.graphDocument.blocks)
+    const blocks = NotnoteGraph.flattenBlocks(state.graphDocument.blocks)
       .map(({ block }) => block)
       .filter((block) => block.children.length);
     if (!blocks.length) return toast("This page has no nested blocks");
@@ -1385,7 +1385,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     $$("a[href]", content).forEach((link) => {
       const source = link.getAttribute("href");
       if (!source || /^[a-z]+:/i.test(source) || source.startsWith("#")) return;
-      if (!NotdGraph.resolveAssetPath(source, fromFolder).startsWith("assets/"))
+      if (!NotnoteGraph.resolveAssetPath(source, fromFolder).startsWith("assets/"))
         return;
       link.dataset.graphAsset = source;
       link.target = "_blank";
@@ -1419,7 +1419,7 @@ Open, save, export, and reach recent documents or headings from the command pale
 
   function orderedJournalPages() {
     if (!graphStore) return [];
-    const today = NotdGraph.journalInfo(new Date(), graphStore.config).date;
+    const today = NotnoteGraph.journalInfo(new Date(), graphStore.config).date;
     return graphStore.pages
       .filter(
         (page) =>
@@ -1435,7 +1435,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   function cachedJournalDocument(page) {
     if (page.path === state.graphPage?.path) return state.graphDocument;
     if (!journalDocuments.has(page.path)) {
-      const document = NotdGraph.parseDocument(page.content);
+      const document = NotnoteGraph.parseDocument(page.content);
       restoreGraphCollapse(document, page);
       journalDocuments.set(page.path, document);
     }
@@ -1452,7 +1452,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         page.path === state.graphPage?.path
           ? state.graphDocument
           : graphIndex.documents.get(page.path);
-      for (const { block } of NotdGraph.flattenBlocks(document?.blocks)) {
+      for (const { block } of NotnoteGraph.flattenBlocks(document?.blocks)) {
         const marker = block.content.match(
           /^(TODO|DOING|DONE|LATER|NOW|WAITING|CANCELED|CANCELLED)(?:\s+|$)/,
         )?.[1];
@@ -1476,7 +1476,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           progress: /^(DOING|NOW)$/.test(marker),
           later: /^(LATER|WAITING)$/.test(marker),
           completedAt:
-            NotdGraph.propertiesFrom(block.content)["completed-at"] || "",
+            NotnoteGraph.propertiesFrom(block.content)["completed-at"] || "",
           sequence: sequence++,
         });
       }
@@ -1488,7 +1488,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const date = new Date();
     date.setHours(12, 0, 0, 0);
     date.setDate(date.getDate() + days);
-    return NotdGraph.formatJournalDate(date, "yyyy-MM-dd");
+    return NotnoteGraph.formatJournalDate(date, "yyyy-MM-dd");
   }
 
   function taskCompletedTodayIds() {
@@ -1571,7 +1571,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const completed = new Date(timestamp);
     return (
       !Number.isNaN(completed.getTime()) &&
-      NotdGraph.formatJournalDate(completed, "yyyy-MM-dd") === taskDate()
+      NotnoteGraph.formatJournalDate(completed, "yyyy-MM-dd") === taskDate()
     );
   }
 
@@ -1756,7 +1756,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   }
 
   function onThisDayPages(date = new Date()) {
-    const monthDay = NotdGraph.formatJournalDate(date, "MM-dd");
+    const monthDay = NotnoteGraph.formatJournalDate(date, "MM-dd");
     const currentYear = date.getFullYear();
     return (graphStore?.pages || [])
       .filter((page) => {
@@ -1768,7 +1768,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   }
 
   function journalDocumentIsEmpty(document) {
-    return !NotdGraph.flattenBlocks(document?.blocks || []).some(({ block }) =>
+    return !NotnoteGraph.flattenBlocks(document?.blocks || []).some(({ block }) =>
       String(block.content || "").trim(),
     );
   }
@@ -1834,7 +1834,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   function scrollOnThisDayIntoView() {
     const section = $(".on-this-day", blockTree);
     if (!section) return;
-    const viewport = notdWrap.getBoundingClientRect();
+    const viewport = notnoteWrap.getBoundingClientRect();
     const bounds = section.getBoundingClientRect();
     let delta = 0;
     if (bounds.height > viewport.height) delta = bounds.top - viewport.top;
@@ -1842,8 +1842,8 @@ Open, save, export, and reach recent documents or headings from the command pale
       delta = bounds.bottom - viewport.bottom + 12;
     else if (bounds.top < viewport.top) delta = bounds.top - viewport.top;
     if (Math.abs(delta) > 1)
-      notdWrap.scrollTo({
-        top: Math.max(0, notdWrap.scrollTop + delta),
+      notnoteWrap.scrollTo({
+        top: Math.max(0, notnoteWrap.scrollTop + delta),
         behavior: "smooth",
       });
   }
@@ -1888,7 +1888,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       page = await graphStore.createPage("Task dashboard", {
         filename: "tasks",
         content:
-          "title:: Tasks\n\n<!-- This file is rendered as the notd task dashboard. -->\n",
+          "title:: Tasks\n\n<!-- This file is rendered as the notnote task dashboard. -->\n",
       });
       page.title = "Tasks";
       graphIndex.rebuild(graphStore.pages);
@@ -1939,13 +1939,13 @@ Open, save, export, and reach recent documents or headings from the command pale
   }
 
   function graphDocumentHasContent(document) {
-    return NotdGraph.flattenBlocks(document?.blocks || []).some(({ block }) =>
+    return NotnoteGraph.flattenBlocks(document?.blocks || []).some(({ block }) =>
       String(block.content || "").trim(),
     );
   }
 
   function graphDocumentHasEmptyBlock(document) {
-    return NotdGraph.flattenBlocks(document?.blocks || []).some(
+    return NotnoteGraph.flattenBlocks(document?.blocks || []).some(
       ({ block }) => !String(block.content || "").trim(),
     );
   }
@@ -2040,7 +2040,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const fragment = document.createDocumentFragment();
     if (state.journalMode && !state.graphZoomId) {
       const pages = orderedJournalPages().slice(0, state.journalLimit);
-      const today = NotdGraph.journalInfo(new Date(), graphStore.config).date;
+      const today = NotnoteGraph.journalInfo(new Date(), graphStore.config).date;
       for (const page of pages) {
         const journalDocument = cachedJournalDocument(page);
         const section = document.createElement("section");
@@ -2209,7 +2209,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     state.graphDocument.blocks = remove(state.graphDocument.blocks);
     if (!state.graphDocument.blocks.length)
       state.graphDocument.blocks.push({
-        id: NotdGraph.newId(),
+        id: NotnoteGraph.newId(),
         uuid: null,
         content: "",
         marker: "-",
@@ -2265,7 +2265,7 @@ Open, save, export, and reach recent documents or headings from the command pale
 
   function activateGraphBlock(block, position = null, page = state.graphPage) {
     if (!block || state.sourceMode) return;
-    const today = NotdGraph.journalInfo(new Date(), graphStore?.config).date;
+    const today = NotnoteGraph.journalInfo(new Date(), graphStore?.config).date;
     if (
       state.journalMode &&
       page?.path === state.graphPage?.path &&
@@ -2405,7 +2405,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     state.saveTimer = setTimeout(() => flushGraphSave(false), 650);
     clearTimeout(graphDraftTimer);
     graphDraftTimer = setTimeout(() => {
-      NotdGraph.saveDraft(state.graphPage.path, {
+      NotnoteGraph.saveDraft(state.graphPage.path, {
         content: currentMarkdown(),
         modified: state.graphPage.lastModified,
       }).catch(() => {});
@@ -2443,7 +2443,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         const created = await graphStore.createPage(page.title, { content });
         state.graphPage = created;
         graphIndex.rebuild(graphStore.pages);
-        await NotdGraph.removeDraft(page.path).catch(() => {});
+        await NotnoteGraph.removeDraft(page.path).catch(() => {});
         state.dirty = false;
         app.classList.remove("dirty");
         saveState.textContent = graphStatusLabel("Saved");
@@ -2454,7 +2454,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         return false;
       }
     }
-    await NotdGraph.saveDraft(page.path, {
+    await NotnoteGraph.saveDraft(page.path, {
       content,
       modified: page.lastModified,
     }).catch(() => {});
@@ -2477,7 +2477,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           await graphStore.writePage(page, content, { force: true });
         }
         graphIndex.updatePage(page, content);
-        await NotdGraph.removeDraft(page.path).catch(() => {});
+        await NotnoteGraph.removeDraft(page.path).catch(() => {});
         if (state.graphPage === page && currentMarkdown() === content) {
           state.dirty = false;
           app.classList.remove("dirty");
@@ -2500,7 +2500,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   function updateCurrentHistoryPosition() {
     const entry = graphHistory[graphHistoryIndex];
     if (!entry || entry.path !== state.graphPage?.path) return;
-    entry.scrollTop = notdWrap.scrollTop;
+    entry.scrollTop = notnoteWrap.scrollTop;
     entry.blockId = state.graphZoomId || null;
     entry.journalMode = state.journalMode;
   }
@@ -2590,7 +2590,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       options.replaceRoute || options.historyNavigation
         ? "replaceState"
         : "pushState";
-    history[method]({ notdPage: page.path }, "", `${path}${location.search}`);
+    history[method]({ notnotePage: page.path }, "", `${path}${location.search}`);
   }
 
   function pageFromGraphRoute(route) {
@@ -2643,7 +2643,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       return;
     graphHistoryIndex = targetIndex;
     requestAnimationFrame(() => {
-      notdWrap.scrollTop = entry.scrollTop || 0;
+      notnoteWrap.scrollTop = entry.scrollTop || 0;
     });
   }
 
@@ -2665,7 +2665,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       page = {
         title,
         name: "",
-        path: `virtual:${NotdGraph.normalizePage(title)}`,
+        path: `virtual:${NotnoteGraph.normalizePage(title)}`,
         folder: "pages",
         content: "- ",
         lastModified: null,
@@ -2680,7 +2680,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       graphIndex.rebuild(graphStore.pages);
     }
     if (!page) return toast("Page not found");
-    const draft = await NotdGraph.getDraft(page.path).catch(() => null);
+    const draft = await NotnoteGraph.getDraft(page.path).catch(() => null);
     const content = draft?.content ?? page.content;
     const draftConflict = Boolean(
       draft?.modified && draft.modified !== page.lastModified,
@@ -2688,7 +2688,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     recordGraphHistory(page, options);
     state.graphMode = true;
     state.graphPage = page;
-    state.graphDocument = NotdGraph.parseDocument(content);
+    state.graphDocument = NotnoteGraph.parseDocument(content);
     restoreGraphCollapse();
     state.journalMode = Boolean(options.journalMode);
     state.journalLimit = options.resetJournalLimit ? 1 : state.journalLimit;
@@ -2719,7 +2719,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     finishTitleEdit();
     fileName.value = page.title;
     fileName.readOnly = Boolean(page.journal);
-    document.title = `${page.title} — ${graphStore.name} — notd`;
+    document.title = `${page.title} — ${graphStore.name} — notnote`;
     rememberGraphPage(page);
     syncGraphRoute(page, options);
     renderGraphPage();
@@ -2767,13 +2767,13 @@ Open, save, export, and reach recent documents or headings from the command pale
     try {
       saveState.textContent = "Checking assets…";
       const pages = await graphStore.scan();
-      graphIndex = new NotdGraph.GraphIndex(pages);
+      graphIndex = new NotnoteGraph.GraphIndex(pages);
       // Search one corpus instead of comparing every asset with every page separately.
-      const corpus = NotdGraph.assetReferenceCorpus(
+      const corpus = NotnoteGraph.assetReferenceCorpus(
         pages.map((page) => String(page.content || "")).join("\n"),
       );
       const assets = await graphStore.listAssets();
-      const referenced = NotdGraph.referencedAssetPaths(corpus, assets);
+      const referenced = NotnoteGraph.referencedAssetPaths(corpus, assets);
       const orphans = assets.filter((path) => !referenced.has(path));
       if (!orphans.length) {
         saveState.textContent = "Ready";
@@ -2786,12 +2786,12 @@ Open, save, export, and reach recent documents or headings from the command pale
       // Re-scan after review so a newly added link always wins over deletion.
       saveState.textContent = "Verifying assets…";
       const latestPages = await graphStore.scan();
-      graphIndex = new NotdGraph.GraphIndex(latestPages);
-      const latestCorpus = NotdGraph.assetReferenceCorpus(
+      graphIndex = new NotnoteGraph.GraphIndex(latestPages);
+      const latestCorpus = NotnoteGraph.assetReferenceCorpus(
         latestPages.map((page) => String(page.content || "")).join("\n"),
       );
       const existingAssets = await graphStore.listAssets();
-      const latestReferenced = NotdGraph.referencedAssetPaths(
+      const latestReferenced = NotnoteGraph.referencedAssetPaths(
         latestCorpus,
         existingAssets,
       );
@@ -2832,11 +2832,11 @@ Open, save, export, and reach recent documents or headings from the command pale
       if (!(await flushGraphSave(true))) return;
       saveState.textContent = "Checking empty pages…";
       const pages = await graphStore.scan();
-      const freshIndex = new NotdGraph.GraphIndex(pages);
+      const freshIndex = new NotnoteGraph.GraphIndex(pages);
       const candidates = pages.filter((page) => {
         if (page.journal || page.virtual) return false;
         return (
-          NotdGraph.isEmptyPageContent(page.content) &&
+          NotnoteGraph.isEmptyPageContent(page.content) &&
           !freshIndex.referencesToPage(page.title).length
         );
       });
@@ -2867,7 +2867,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       const failed = results.filter(
         (result) => result.status === "rejected",
       ).length;
-      graphIndex = new NotdGraph.GraphIndex(graphStore.pages);
+      graphIndex = new NotnoteGraph.GraphIndex(graphStore.pages);
       journalDocuments.clear();
       updateStats();
       const currentWasDeleted =
@@ -2892,14 +2892,14 @@ Open, save, export, and reach recent documents or headings from the command pale
     try {
       saveState.textContent = "Syncing graph…";
       const pages = await graphStore.scan();
-      graphIndex = new NotdGraph.GraphIndex(pages);
+      graphIndex = new NotnoteGraph.GraphIndex(pages);
       journalDocuments.clear();
       const current =
         state.graphPage &&
         pages.find((page) => page.path === state.graphPage.path);
       if (current) {
         state.graphPage = current;
-        state.graphDocument = NotdGraph.parseDocument(current.content);
+        state.graphDocument = NotnoteGraph.parseDocument(current.content);
         restoreGraphCollapse();
         if (state.journalMode)
           journalDocuments.set(current.path, state.graphDocument);
@@ -2926,7 +2926,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       closeRemoteEvents?.();
       closeRemoteEvents = null;
       graphStore?.disposeAssets();
-      graphStore = await NotdGraph.GraphStore.open();
+      graphStore = await NotnoteGraph.GraphStore.open();
       graphSettings = null;
       taskUndoStack.length = 0;
       taskRedoStack.length = 0;
@@ -2934,7 +2934,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       state.taskCompletedDate = "";
       await loadGraphSettings();
       const pages = await graphStore.scan();
-      graphIndex = new NotdGraph.GraphIndex(pages);
+      graphIndex = new NotnoteGraph.GraphIndex(pages);
       journalDocuments.clear();
       graphHistory = [];
       graphHistoryIndex = -1;
@@ -2948,7 +2948,7 @@ Open, save, export, and reach recent documents or headings from the command pale
 
   async function openJournalDate(date, options = {}) {
     if (!graphStore) return openGraph();
-    const journal = NotdGraph.journalInfo(date, graphStore.config);
+    const journal = NotnoteGraph.journalInfo(date, graphStore.config);
     let page =
       graphStore.pages.find((item) => item.journalDate === journal.date) ||
       graphIndex.resolvePage(journal.title);
@@ -2976,7 +2976,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       const entry = blockTree.querySelector(
         `[data-journal-path="${CSS.escape(page.path)}"]`,
       );
-      if (options.reset) notdWrap.scrollTop = 0;
+      if (options.reset) notnoteWrap.scrollTop = 0;
       else entry?.scrollIntoView({ block: "start", behavior: "smooth" });
       if (state.vimEnabled) focusVimEditor();
     });
@@ -2993,7 +2993,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   async function openSingleJournalDate(date) {
     if (!graphStore) await openGraph();
     if (!graphStore) return;
-    const journal = NotdGraph.journalInfo(date, graphStore.config);
+    const journal = NotnoteGraph.journalInfo(date, graphStore.config);
     let page =
       graphStore.pages.find((item) => item.journalDate === journal.date) ||
       graphIndex.resolvePage(journal.title);
@@ -3006,7 +3006,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       graphIndex.rebuild(graphStore.pages);
     }
     await loadGraphPage(page, { journalMode: false });
-    notdWrap.scrollTop = 0;
+    notnoteWrap.scrollTop = 0;
   }
 
   function calendarTaskRowsHtml(tasks) {
@@ -3030,8 +3030,8 @@ Open, save, export, and reach recent documents or headings from the command pale
     const first = new Date(year, month, 1, 12);
     const offset = (first.getDay() + 6) % 7;
     const start = new Date(year, month, 1 - offset, 12);
-    const today = NotdGraph.journalInfo(new Date(), graphStore?.config).date;
-    const focused = NotdGraph.journalInfo(
+    const today = NotnoteGraph.journalInfo(new Date(), graphStore?.config).date;
+    const focused = NotnoteGraph.journalInfo(
       calendarFocusDate,
       graphStore?.config,
     ).date;
@@ -3041,7 +3041,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     $("#calendarDays").innerHTML = Array.from({ length: 42 }, (_, index) => {
       const date = new Date(start);
       date.setDate(start.getDate() + index);
-      const value = NotdGraph.journalInfo(date, graphStore?.config).date;
+      const value = NotnoteGraph.journalInfo(date, graphStore?.config).date;
       const classes = [
         date.getMonth() !== month ? "outside" : "",
         value === today ? "today" : "",
@@ -3140,7 +3140,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       ? state.graphDocument
       : journalDocuments.get(page.path) ||
         graphIndex?.documents.get(page.path) ||
-        NotdGraph.parseDocument(page.content);
+        NotnoteGraph.parseDocument(page.content);
     const block = graphBlockLocation(blockId, document?.blocks)?.block;
     if (!block) return;
     const marker = block.content.match(
@@ -3168,7 +3168,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     );
     if (current) graphChanged();
     else {
-      const content = NotdGraph.serializeDocument(document);
+      const content = NotnoteGraph.serializeDocument(document);
       try {
         await graphStore.writePage(page, content);
         graphIndex.updatePage(page, content);
@@ -3195,7 +3195,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       block.id,
       marker,
       next,
-      NotdGraph.flattenBlocks(document.blocks).findIndex(
+      NotnoteGraph.flattenBlocks(document.blocks).findIndex(
         (item) => item.block === block,
       ),
     );
@@ -3213,17 +3213,17 @@ Open, save, export, and reach recent documents or headings from the command pale
     const document = current
       ? state.graphDocument
       : journalDocuments.get(page.path) ||
-        NotdGraph.parseDocument(page.content);
+        NotnoteGraph.parseDocument(page.content);
     const block = graphBlockLocation(blockId, document?.blocks)?.block;
     if (!block) return;
-    const value = NotdGraph.formatJournalDate(date, "yyyy-MM-dd EEE");
+    const value = NotnoteGraph.formatJournalDate(date, "yyyy-MM-dd EEE");
     block.content = block.content.replace(
       /^(\s*)(SCHEDULED|DEADLINE):\s*<[^>]+>\s*$/m,
       (_, space, type) => `${space}${type}: <${value}>`,
     );
     if (current) graphChanged();
     else {
-      const content = NotdGraph.serializeDocument(document);
+      const content = NotnoteGraph.serializeDocument(document);
       await graphStore.writePage(page, content);
       graphIndex.updatePage(page, content);
       if (page.journal || journalDocuments.has(page.path))
@@ -3304,7 +3304,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (!page) return "";
     if (String(page.title).includes("/")) return page.title;
     const filename = page.name || page.path?.split("/").at(-1) || "";
-    const inferred = NotdGraph.pageTitle("", filename);
+    const inferred = NotnoteGraph.pageTitle("", filename);
     return inferred.includes("/") ? inferred : page.title;
   }
 
@@ -3343,8 +3343,8 @@ Open, save, export, and reach recent documents or headings from the command pale
         const parts = item.title.split("/");
         return (
           parts.length === currentParts.length + 1 &&
-          NotdGraph.normalizePage(parts.slice(0, -1).join("/")) ===
-            NotdGraph.normalizePage(currentTitle)
+          NotnoteGraph.normalizePage(parts.slice(0, -1).join("/")) ===
+            NotnoteGraph.normalizePage(currentTitle)
         );
       })
       .sort((a, b) => a.title.localeCompare(b.title));
@@ -3397,7 +3397,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const journalTitleTimestamp = (page) => {
       if (!page.journal && !String(page.path || "").startsWith("journals/"))
         return 0;
-      const configured = NotdGraph.parseJournalDate(
+      const configured = NotnoteGraph.parseJournalDate(
         String(page.title || ""),
         graphStore?.config?.pageTitleFormat,
       );
@@ -3417,7 +3417,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       if (titleTimestamp) return titleTimestamp;
       const journalTimestamp = dateValueTimestamp(page.journalDate);
       if (journalTimestamp) return journalTimestamp;
-      const properties = NotdGraph.propertiesFrom(page.content || "");
+      const properties = NotnoteGraph.propertiesFrom(page.content || "");
       return dateValueTimestamp(
         properties["created-at"] || properties.created || page.lastModified,
       );
@@ -3472,13 +3472,13 @@ Open, save, export, and reach recent documents or headings from the command pale
     const linked = graphIndex
       .referencesToPage(pageTitle)
       .filter(
-        (item) => !aggregatePages.has(NotdGraph.normalizePage(item.page.title)),
+        (item) => !aggregatePages.has(NotnoteGraph.normalizePage(item.page.title)),
       );
     const zoomedBlock = state.graphZoomId
       ? graphBlockLocation(state.graphZoomId)?.block
       : null;
     const blockUuid =
-      zoomedBlock && NotdGraph.propertiesFrom(zoomedBlock.content).id;
+      zoomedBlock && NotnoteGraph.propertiesFrom(zoomedBlock.content).id;
     const blockLinked = blockUuid
       ? graphIndex.referencesToBlock(blockUuid)
       : [];
@@ -3718,7 +3718,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         block.id,
         before,
         after,
-        NotdGraph.flattenBlocks(state.graphDocument?.blocks).findIndex(
+        NotnoteGraph.flattenBlocks(state.graphDocument?.blocks).findIndex(
           (item) => item.block === block,
         ),
       );
@@ -3741,7 +3741,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     }
     commitGraphBlock();
     const block = {
-      id: NotdGraph.newId(),
+      id: NotnoteGraph.newId(),
       uuid: null,
       content: "",
       marker: "-",
@@ -3757,7 +3757,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const location = graphBlockLocation(block.id);
     if (!location) return null;
     const next = {
-      id: NotdGraph.newId(),
+      id: NotnoteGraph.newId(),
       uuid: null,
       content,
       marker: block.marker || "-",
@@ -3777,7 +3777,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const location = graphBlockLocation(block.id);
     if (!location) return null;
     const previous = {
-      id: NotdGraph.newId(),
+      id: NotnoteGraph.newId(),
       uuid: null,
       content: "",
       marker: block.marker || "-",
@@ -4010,7 +4010,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     { title: "/record", keywords: "voice note microphone audio", record: true },
   ];
   function pageMatchRank(value, query) {
-    const normalized = NotdGraph.normalizePage(value);
+    const normalized = NotnoteGraph.normalizePage(value);
     if (!query || normalized === query) return 0;
     if (normalized.startsWith(query)) return 1;
     if (
@@ -4031,14 +4031,14 @@ Open, save, export, and reach recent documents or headings from the command pale
   }
   function blockAutocompleteResults(query) {
     if (!graphIndex) return [];
-    const needle = NotdGraph.normalizePage(query);
+    const needle = NotnoteGraph.normalizePage(query);
     const results = [];
     for (const page of graphIndex.allPages()) {
       const current = page.path === state.graphPage?.path;
       const document = current
         ? state.graphDocument
         : graphIndex.documents.get(page.path);
-      for (const { block } of NotdGraph.flattenBlocks(document?.blocks)) {
+      for (const { block } of NotnoteGraph.flattenBlocks(document?.blocks)) {
         if (current && block === activeGraphBlock?.block) continue;
         const content = block.content
           .replace(/^\s*[\w-]+::.*$/gm, "")
@@ -4046,7 +4046,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           .trim();
         if (
           !content ||
-          (needle && !NotdGraph.normalizePage(content).includes(needle))
+          (needle && !NotnoteGraph.normalizePage(content).includes(needle))
         )
           continue;
         results.push({
@@ -4093,7 +4093,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     } else if (wikiMatch && graphIndex) {
       const title = wikiMatch[1].trim();
       if (title.length < 2) return hideGraphAutocomplete();
-      const query = NotdGraph.normalizePage(title);
+      const query = NotnoteGraph.normalizePage(title);
       const pages = graphIndex.pageSuggestions();
       const matches = pages
         .map((page) => ({ page, rank: graphPageMatchRank(page, query) }))
@@ -4169,14 +4169,14 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (item.blockAutocomplete) {
       const start = before.lastIndexOf("((");
       const end = field.selectionStart;
-      let uuid = NotdGraph.propertiesFrom(item.block.content).id;
+      let uuid = NotnoteGraph.propertiesFrom(item.block.content).id;
       if (!uuid) {
-        uuid = NotdGraph.newId();
+        uuid = NotnoteGraph.newId();
         item.block.uuid = uuid;
         item.block.content = `${item.block.content.replace(/\s+$/, "")}${item.block.content.trim() ? "\n" : ""}id:: ${uuid}`;
         if (item.page.path === state.graphPage?.path) graphChanged();
         else {
-          const content = NotdGraph.serializeDocument(item.document);
+          const content = NotnoteGraph.serializeDocument(item.document);
           graphStore
             .writePage(item.page, content)
             .then(() => graphIndex.updatePage(item.page, content))
@@ -4235,7 +4235,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         const anchor = graphAutocomplete.getBoundingClientRect();
         hideGraphAutocomplete();
         toggleJournalCalendar((date) => {
-          const scheduled = `SCHEDULED: <${NotdGraph.formatJournalDate(date, "yyyy-MM-dd EEE")}>`;
+          const scheduled = `SCHEDULED: <${NotnoteGraph.formatJournalDate(date, "yyyy-MM-dd EEE")}>`;
           let content =
             `${field.value.slice(0, start)}${field.value.slice(end)}`.trimEnd();
           content = content
@@ -4267,7 +4267,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         const anchor = graphAutocomplete.getBoundingClientRect();
         hideGraphAutocomplete();
         toggleJournalCalendar((date) => {
-          const title = NotdGraph.journalInfo(date, graphStore?.config).title;
+          const title = NotnoteGraph.journalInfo(date, graphStore?.config).title;
           const reference = `[[${title}]]`;
           if (field.isConnected) {
             field.setRangeText(reference, start, end, "end");
@@ -4281,7 +4281,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         }, anchor);
       } else {
         const date = relativeJournalDate(item.days);
-        const title = NotdGraph.journalInfo(date, graphStore?.config).title;
+        const title = NotnoteGraph.journalInfo(date, graphStore?.config).title;
         field.setRangeText(`[[${title}]]`, start, end, "end");
         field.dispatchEvent(new InputEvent("input", { bubbles: true }));
         hideGraphAutocomplete();
@@ -4756,7 +4756,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         field === activeGraphBlock?.field ? activeGraphBlock.block.id : null,
       graphBlockIndex:
         field === activeGraphBlock?.field
-          ? NotdGraph.flattenBlocks(state.graphDocument?.blocks).findIndex(
+          ? NotnoteGraph.flattenBlocks(state.graphDocument?.blocks).findIndex(
               ({ block }) => block === activeGraphBlock.block,
             )
           : 0,
@@ -4797,13 +4797,13 @@ Open, save, export, and reach recent documents or headings from the command pale
       setVimMode("normal", sourceEditor, snapshot.cursor);
     } else if (state.graphMode) {
       activeGraphBlock = null;
-      state.graphDocument = NotdGraph.parseDocument(snapshot.markdown);
+      state.graphDocument = NotnoteGraph.parseDocument(snapshot.markdown);
       restoreGraphCollapse();
       renderGraphPage();
       graphChanged();
       const block =
         graphBlockLocation(snapshot.blockId)?.block ||
-        NotdGraph.flattenBlocks(state.graphDocument.blocks)[
+        NotnoteGraph.flattenBlocks(state.graphDocument.blocks)[
           snapshot.graphBlockIndex
         ]?.block ||
         state.graphDocument.blocks[0];
@@ -4877,10 +4877,10 @@ Open, save, export, and reach recent documents or headings from the command pale
         ? state.graphDocument
         : journalDocuments.get(page.path) ||
           graphIndex?.documents.get(page.path) ||
-          NotdGraph.parseDocument(page.content);
+          NotnoteGraph.parseDocument(page.content);
       const block =
         graphBlockLocation(operation.blockId, document?.blocks)?.block ||
-        NotdGraph.flattenBlocks(document?.blocks)[operation.blockIndex]?.block;
+        NotnoteGraph.flattenBlocks(document?.blocks)[operation.blockIndex]?.block;
       if (!block) throw new Error("Task block not found");
       const marker = block.content.match(
         /^(TODO|DOING|DONE|LATER|NOW|WAITING|CANCELED|CANCELLED)(?:\s+|$)/,
@@ -4894,7 +4894,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       );
       if (current) graphChanged();
       else {
-        const content = NotdGraph.serializeDocument(document);
+        const content = NotnoteGraph.serializeDocument(document);
         try {
           await graphStore.writePage(page, content);
           graphIndex.updatePage(page, content);
@@ -5196,7 +5196,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       const lineHeight = parseFloat(getComputedStyle(field).lineHeight) || 24;
       const jump = Math.max(
         5,
-        Math.floor(notdWrap.clientHeight / lineHeight / 2),
+        Math.floor(notnoteWrap.clientHeight / lineHeight / 2),
       );
       const targetLine = Math.max(
         0,
@@ -5295,7 +5295,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (!before) next = createNextGraphBlock(block);
     else {
       next = {
-        id: NotdGraph.newId(),
+        id: NotnoteGraph.newId(),
         uuid: null,
         content: "",
         marker: block.marker || "-",
@@ -5316,7 +5316,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const block = activeGraphBlock?.block;
     const location = block && graphBlockLocation(block.id);
     if (!location) return;
-    const pageBlocks = NotdGraph.flattenBlocks(state.graphDocument.blocks).map(
+    const pageBlocks = NotnoteGraph.flattenBlocks(state.graphDocument.blocks).map(
       (entry) => entry.block,
     );
     if (pageBlocks.length <= 1) {
@@ -5718,7 +5718,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     finishTitleEdit();
     fileName.value = name.replace(/\.(md|markdown|txt)$/i, "");
     fileName.readOnly = false;
-    document.title = `${fileName.value} — notd`;
+    document.title = `${fileName.value} — notnote`;
     app.classList.remove("dirty");
     updateStats();
     updateOutline();
@@ -5738,7 +5738,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     state.markdown = currentMarkdown();
     app.classList.add("dirty");
     saveState.textContent = "Modified";
-    document.title = `• ${fileName.value || "Untitled"} — notd`;
+    document.title = `• ${fileName.value || "Untitled"} — notnote`;
     clearTimeout(state.saveTimer);
     state.saveTimer = setTimeout(() => {
       persistLocal(true);
@@ -5858,7 +5858,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       state.markdown = markdown;
       state.dirty = false;
       app.classList.remove("dirty");
-      document.title = `${fileName.value} — notd`;
+      document.title = `${fileName.value} — notnote`;
       saveState.textContent = "Saved";
       persistLocal(false);
       toast("Document saved");
@@ -5897,11 +5897,11 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (state.graphMode) {
       if (shouldEnable) {
         commitGraphBlock();
-        sourceEditor.value = NotdGraph.serializeDocument(state.graphDocument);
+        sourceEditor.value = NotnoteGraph.serializeDocument(state.graphDocument);
         outliner.hidden = true;
         sourceEditor.hidden = false;
       } else {
-        state.graphDocument = NotdGraph.parseDocument(sourceEditor.value);
+        state.graphDocument = NotnoteGraph.parseDocument(sourceEditor.value);
         restoreGraphCollapse();
         sourceEditor.hidden = true;
         outliner.hidden = false;
@@ -6175,13 +6175,13 @@ Open, save, export, and reach recent documents or headings from the command pale
       const line = sourceEditor.value
         .slice(0, sourceEditor.selectionStart)
         .split("\n").length;
-      notdWrap.scrollTop = Math.max(
+      notnoteWrap.scrollTop = Math.max(
         0,
-        line * lineHeight - notdWrap.clientHeight / 2,
+        line * lineHeight - notnoteWrap.clientHeight / 2,
       );
     } else if (selection.rangeCount && editor.contains(selection.anchorNode)) {
       const rect = selection.getRangeAt(0).getBoundingClientRect();
-      notdWrap.scrollBy({
+      notnoteWrap.scrollBy({
         top: rect.top - innerHeight / 2,
         behavior: "smooth",
       });
@@ -6357,12 +6357,12 @@ Open, save, export, and reach recent documents or headings from the command pale
     }
   }
 
-  new MutationObserver(scheduleDocumentSearch).observe(notdWrap, {
+  new MutationObserver(scheduleDocumentSearch).observe(notnoteWrap, {
     childList: true,
     characterData: true,
     subtree: true,
   });
-  notdWrap.addEventListener("input", scheduleDocumentSearch);
+  notnoteWrap.addEventListener("input", scheduleDocumentSearch);
 
   let documentationLoaded = false;
   let documentationReturnFocus = null;
@@ -6683,8 +6683,8 @@ Open, save, export, and reach recent documents or headings from the command pale
   async function copyGraphBlockReference() {
     const block = selectedGraphBlock();
     if (!state.graphMode || !block) return toast("Select a block first");
-    const properties = NotdGraph.propertiesFrom(block.content);
-    const uuid = properties.id || NotdGraph.newId();
+    const properties = NotnoteGraph.propertiesFrom(block.content);
+    const uuid = properties.id || NotnoteGraph.newId();
     if (!properties.id) {
       block.content = `${block.content.replace(/\s+$/, "")}\n${block.content ? "" : ""}id:: ${uuid}`;
       block.uuid = uuid;
@@ -6884,7 +6884,7 @@ Open, save, export, and reach recent documents or headings from the command pale
 
   function recentPageCommands(query) {
     const searchQuery = query.toLowerCase();
-    const normalizedQuery = query && NotdGraph.normalizePage(query);
+    const normalizedQuery = query && NotnoteGraph.normalizePage(query);
     const seen = new Set();
     const settings = currentSettings();
     const storedPages = (settings.recentGraphPages || [])
@@ -6909,10 +6909,10 @@ Open, save, export, and reach recent documents or headings from the command pale
         const results = [];
         const aliasKeys = new Set();
         for (const alias of aliases) {
-          const key = NotdGraph.normalizePage(alias);
+          const key = NotnoteGraph.normalizePage(alias);
           if (
             !key.includes(normalizedQuery) ||
-            key === NotdGraph.normalizePage(page.title) ||
+            key === NotnoteGraph.normalizePage(page.title) ||
             aliasKeys.has(key)
           )
             continue;
@@ -6924,7 +6924,7 @@ Open, save, export, and reach recent documents or headings from the command pale
             rank: pageMatchRank(alias, normalizedQuery),
           });
         }
-        if (NotdGraph.normalizePage(page.title).includes(normalizedQuery))
+        if (NotnoteGraph.normalizePage(page.title).includes(normalizedQuery))
           results.push({
             page,
             aliases,
@@ -6970,7 +6970,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       graphIndex
         ?.pageSuggestions()
         .some(
-          (page) => NotdGraph.normalizePage(page.title) === normalizedQuery,
+          (page) => NotnoteGraph.normalizePage(page.title) === normalizedQuery,
         );
     const createPage =
       query && graphStore && !exactPage
@@ -7216,7 +7216,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const page = graphStore?.pages.find((item) => item.path === pagePath);
     if (!page) return;
     await loadGraphPage(page, { journalMode: false });
-    notdWrap.scrollTop = 0;
+    notnoteWrap.scrollTop = 0;
   }
 
   function beginTitleEdit() {
@@ -7265,8 +7265,8 @@ Open, save, export, and reach recent documents or headings from the command pale
       const duplicate = graphStore.pages.find(
         (candidate) =>
           candidate !== page &&
-          NotdGraph.normalizePage(candidate.title) ===
-            NotdGraph.normalizePage(nextTitle),
+          NotnoteGraph.normalizePage(candidate.title) ===
+            NotnoteGraph.normalizePage(nextTitle),
       );
       if (duplicate) throw new Error("A page with this name already exists");
       const updateLinks = confirm(
@@ -7280,7 +7280,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         for (const linkedPage of [...graphStore.pages]) {
           const content =
             linkedPage === page ? currentContent : linkedPage.content;
-          const updated = NotdGraph.replacePageReferences(
+          const updated = NotnoteGraph.replacePageReferences(
             content,
             oldTitle,
             nextTitle,
@@ -7297,12 +7297,12 @@ Open, save, export, and reach recent documents or headings from the command pale
         currentContent,
       );
       state.graphPage = renamed;
-      state.graphDocument = NotdGraph.parseDocument(currentContent);
+      state.graphDocument = NotnoteGraph.parseDocument(currentContent);
       restoreGraphCollapse();
       state.dirty = false;
-      graphIndex = new NotdGraph.GraphIndex(graphStore.pages);
+      graphIndex = new NotnoteGraph.GraphIndex(graphStore.pages);
       fileName.value = nextTitle;
-      document.title = `${nextTitle} — ${graphStore.name} — notd`;
+      document.title = `${nextTitle} — ${graphStore.name} — notnote`;
       saveSettings({ lastGraphPage: nextTitle });
       syncGraphRoute(renamed, {
         journalMode: state.journalMode,
@@ -7759,7 +7759,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       '<p class="page-history-message">Loading Git history…</p>';
     if (!graphStore?.isRemote) {
       $("#pageHistoryContent").innerHTML =
-        '<p class="page-history-message">Page history is available when the graph is served by notd server.</p>';
+        '<p class="page-history-message">Page history is available when the graph is served by notnote server.</p>';
       return;
     }
     commitGraphBlock();
@@ -7828,7 +7828,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       status.textContent = "Saving restored version…";
       await graphStore.writePage(page, result.content);
       graphIndex.updatePage(page, result.content);
-      await NotdGraph.removeDraft(page.path).catch(() => {});
+      await NotnoteGraph.removeDraft(page.path).catch(() => {});
       state.dirty = false;
       state.graphConflict = false;
       app.classList.remove("dirty");
@@ -7843,7 +7843,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       toast(`Restored commit ${commit.slice(0, 8)}`);
     } catch (error) {
       const message = /Unknown graph endpoint/i.test(error.message || "")
-        ? "Restore is unavailable until the notd server is restarted."
+        ? "Restore is unavailable until the notnote server is restarted."
         : error.message || "Could not restore this version";
       status.textContent = `Restore failed: ${message}`;
       toast(message);
@@ -8847,7 +8847,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   });
   $("#addBlock").addEventListener("click", () => {
     const block = {
-      id: NotdGraph.newId(),
+      id: NotnoteGraph.newId(),
       uuid: null,
       content: "",
       marker: "-",
@@ -9171,14 +9171,14 @@ Open, save, export, and reach recent documents or headings from the command pale
         const synced = await store.syncPending();
         const pages = await store.scan();
         if (graphStore !== store) return false;
-        graphIndex = new NotdGraph.GraphIndex(pages);
+        graphIndex = new NotnoteGraph.GraphIndex(pages);
         journalDocuments.clear();
         const current =
           state.graphPage &&
           pages.find((page) => page.path === state.graphPage.path);
         if (current && !state.dirty) {
           state.graphPage = current;
-          state.graphDocument = NotdGraph.parseDocument(current.content);
+          state.graphDocument = NotnoteGraph.parseDocument(current.content);
           restoreGraphCollapse();
           if (state.journalMode)
             journalDocuments.set(current.path, state.graphDocument);
@@ -9229,7 +9229,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       const previousModified = state.graphPage.lastModified;
       const pages = await graphStore.scan();
       const current = pages.find((page) => page.path === currentPath);
-      graphIndex = new NotdGraph.GraphIndex(pages);
+      graphIndex = new NotnoteGraph.GraphIndex(pages);
       if (!current) {
         remoteRefreshPending = false;
         saveState.textContent = "Page removed";
@@ -9239,7 +9239,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       journalDocuments.clear();
       remoteRefreshPending = false;
       if (current.lastModified !== previousModified) {
-        state.graphDocument = NotdGraph.parseDocument(current.content);
+        state.graphDocument = NotnoteGraph.parseDocument(current.content);
         restoreGraphCollapse();
         updateStats();
         saveState.textContent = "Reloaded";
@@ -9290,7 +9290,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     } else if (state.graphMode) flushGraphSave(false);
   });
   let journalScrollLoading = false;
-  notdWrap.addEventListener("scroll", () => {
+  notnoteWrap.addEventListener("scroll", () => {
     if (
       !state.journalMode ||
       state.graphZoomId ||
@@ -9299,25 +9299,25 @@ Open, save, export, and reach recent documents or headings from the command pale
     )
       return;
     if (
-      notdWrap.scrollTop + notdWrap.clientHeight <
-      notdWrap.scrollHeight - 240
+      notnoteWrap.scrollTop + notnoteWrap.clientHeight <
+      notnoteWrap.scrollHeight - 240
     )
       return;
     if (state.journalLimit >= orderedJournalPages().length) return;
     journalScrollLoading = true;
-    const scrollTop = notdWrap.scrollTop;
+    const scrollTop = notnoteWrap.scrollTop;
     state.journalLimit += 8;
     renderGraphPage();
-    notdWrap.scrollTop = scrollTop;
+    notnoteWrap.scrollTop = scrollTop;
     requestAnimationFrame(() => {
       journalScrollLoading = false;
     });
   });
-  notdWrap.addEventListener("dragover", (event) => {
+  notnoteWrap.addEventListener("dragover", (event) => {
     if ([...event.dataTransfer.items].some((item) => item.kind === "file"))
       event.preventDefault();
   });
-  notdWrap.addEventListener("drop", async (event) => {
+  notnoteWrap.addEventListener("drop", async (event) => {
     const file = [...event.dataTransfer.files].find((item) =>
       /\.(md|markdown|txt)$/i.test(item.name),
     );
@@ -9347,7 +9347,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       docs = [
         ...docs.slice(0, 9),
         {
-          id: "notd-welcome",
+          id: "notnote-welcome",
           name: "Welcome",
           markdown: starter,
           updated: Date.now(),
@@ -9371,12 +9371,12 @@ Open, save, export, and reach recent documents or headings from the command pale
   saveState.textContent = "Loading…";
   (async () => {
     try {
-      const remote = await NotdGraph.RemoteGraphStore.connect();
+      const remote = await NotnoteGraph.RemoteGraphStore.connect();
       graphStore = remote;
       graphSettings = null;
       await loadGraphSettings();
       const pages = await graphStore.scan();
-      graphIndex = new NotdGraph.GraphIndex(pages);
+      graphIndex = new NotnoteGraph.GraphIndex(pages);
       watchRemoteGraph();
       if (state.dirty) return;
       journalDocuments.clear();
@@ -9389,13 +9389,13 @@ Open, save, export, and reach recent documents or headings from the command pale
       return;
     } catch {}
     try {
-      const restored = await NotdGraph.GraphStore.restore();
+      const restored = await NotnoteGraph.GraphStore.restore();
       if (restored && (await restored.ensurePermission(false))) {
         graphStore = restored;
         graphSettings = null;
         await loadGraphSettings();
         const pages = await graphStore.scan();
-        graphIndex = new NotdGraph.GraphIndex(pages);
+        graphIndex = new NotnoteGraph.GraphIndex(pages);
         if (state.dirty) return;
         journalDocuments.clear();
         graphHistory = [];
