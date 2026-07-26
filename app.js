@@ -18,6 +18,9 @@
   const mobileBlockToolbar = $("#mobileBlockToolbar");
   const voiceRecorderPanel = $("#voiceRecorder");
   const toastElement = $("#toast");
+  const imageLightbox = $("#imageLightbox");
+  const imageLightboxImage = $("#imageLightboxImage");
+  let imageLightboxTrigger = null;
   let mobileViewportHeight = Math.max(
     window.innerHeight,
     window.visualViewport?.height || 0,
@@ -767,7 +770,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           );
         } else {
           links.push(
-            `<img src="${safeUrl(url)}" alt="${alt}"${title ? ` title="${title}"` : ""} loading="lazy" decoding="async" referrerpolicy="no-referrer">`,
+            `<span class="image-embed-wrap"><img class="image-embed" src="${safeUrl(url)}" alt="${alt}"${title ? ` title="${title}"` : ""} loading="lazy" decoding="async" referrerpolicy="no-referrer"><button class="image-expand-button" type="button" contenteditable="false" aria-label="Open image full screen" title="Open image full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M4 15v5h5"/></svg></button></span>`,
           );
         }
         return `\u0000LINK${links.length - 1}\u0000`;
@@ -979,6 +982,8 @@ Open, save, export, and reach recent documents or headings from the command pale
       case "AUDIO":
       case "VIDEO":
         return `![${node.dataset.embedLabel || ""}](${node.getAttribute("src") || ""}${node.title ? ` "${node.title}"` : ""})`;
+      case "BUTTON":
+        return "";
       case "IFRAME": {
         const attributes = [
           `width="${node.getAttribute("width") || "560"}"`,
@@ -8383,7 +8388,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (
       state.sourceMode ||
       event.target.matches('input[type="checkbox"]') ||
-      event.target.closest("audio,video,iframe") ||
+      event.target.closest("button,audio,video,iframe") ||
       activeSourceBlock?.contains(event.target)
     )
       return;
@@ -8403,6 +8408,58 @@ Open, save, export, and reach recent documents or headings from the command pale
       changed();
     }
   });
+
+  function openImageLightbox(image, trigger = image) {
+    const source = image.currentSrc || image.getAttribute("src");
+    if (!source) return;
+    imageLightboxTrigger = trigger;
+    imageLightboxImage.src = source;
+    imageLightboxImage.alt = image.alt || "Full-screen image";
+    imageLightbox.hidden = false;
+    document.body.classList.add("image-lightbox-open");
+    requestAnimationFrame(() => $("#imageLightboxClose").focus());
+  }
+
+  function closeImageLightbox() {
+    if (imageLightbox.hidden) return;
+    imageLightbox.hidden = true;
+    imageLightboxImage.removeAttribute("src");
+    imageLightboxImage.alt = "";
+    document.body.classList.remove("image-lightbox-open");
+    if (imageLightboxTrigger?.isConnected)
+      imageLightboxTrigger.focus({ preventScroll: true });
+    imageLightboxTrigger = null;
+  }
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest?.(".image-expand-button");
+    const image = button
+      ?.closest(".image-embed-wrap")
+      ?.querySelector("img.image-embed");
+    if (!image) return;
+    event.preventDefault();
+    openImageLightbox(image, button);
+  });
+  imageLightbox.addEventListener("click", (event) => {
+    if (
+      event.target === imageLightbox ||
+      event.target.closest("#imageLightboxClose")
+    )
+      closeImageLightbox();
+  });
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (!imageLightbox.hidden && event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeImageLightbox();
+        return;
+      }
+    },
+    true,
+  );
+
   let blockSwipe = null;
   let suppressBlockClickUntil = 0;
   // Horizontal touch gestures mutate indentation while vertical movement remains native scrolling.
@@ -8442,7 +8499,11 @@ Open, save, export, and reach recent documents or headings from the command pale
   };
   outliner.addEventListener("pointerdown", (event) => {
     if (event.pointerType !== "touch" || event.button !== 0) return;
-    if (event.target.closest("button,a,input,textarea,select,audio,video,iframe"))
+    if (
+      event.target.closest(
+        "button,a,input,textarea,select,audio,video,iframe",
+      )
+    )
       return;
     const row = event.target.closest(".block-row");
     const node = row?.closest(".block-node");

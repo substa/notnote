@@ -946,6 +946,107 @@ svg {
   margin-right: 9px;
   color: var(--faint);
 }
+.image-embed-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.image-embed-wrap > img.image-embed {
+  display: block;
+  margin: 0;
+}
+.graph-block-content .image-embed-wrap,
+.reference-result .image-embed-wrap {
+  margin: 8px 0;
+}
+.image-expand-button {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #fff5;
+  border-radius: 7px;
+  background: #111c;
+  color: #fff;
+  box-shadow: 0 3px 14px #0006;
+  cursor: zoom-in;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.image-expand-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.image-embed-wrap:hover .image-expand-button,
+.image-expand-button:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.image-expand-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+@media (hover: none) {
+  .image-expand-button {
+    opacity: 0.82;
+    transform: none;
+  }
+}
+body.image-lightbox-open {
+  overflow: hidden;
+}
+.image-lightbox {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #000e;
+  cursor: zoom-out;
+  overscroll-behavior: contain;
+}
+.image-lightbox[hidden] {
+  display: none;
+}
+.image-lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 48px);
+  object-fit: contain;
+  border-radius: 3px;
+  box-shadow: 0 16px 60px #0008;
+  cursor: default;
+}
+.image-lightbox-close {
+  position: fixed;
+  z-index: 1;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: #111b;
+  color: #fff;
+  font: 30px/1 var(--ui);
+  cursor: pointer;
+}
+.image-lightbox-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
 .dialog-backdrop {
   position: fixed;
   z-index: 110;
