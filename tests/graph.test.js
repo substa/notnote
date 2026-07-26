@@ -203,6 +203,31 @@ test('preserves assets mentioned through raw, encoded, or non-standard links', (
   assert.equal(Graph.contentMentionsAsset('- no attachment here', path), false);
 });
 
+test('opens a cached remote graph without waiting for the network', async () => {
+  const cached = {
+    status: { name: 'Cached graph', config: {} },
+    files: {
+      config: {},
+      files: [{ path: 'pages/cached.md', name: 'cached.md', folder: 'pages', content: '- ready', revision: '1' }],
+    },
+    operations: [],
+  };
+  const store = Graph.RemoteGraphStore.fromCache(cached);
+
+  assert.equal(store.name, 'Cached graph');
+  assert.equal(store.offline, true);
+  assert.equal((await store.scan())[0].content, '- ready');
+
+  store.api = async (path) => {
+    assert.equal(path, '/status');
+    return { enabled: true, name: 'Fresh graph', config: {} };
+  };
+  store.persistCache = async () => {};
+  await store.reconnect();
+  assert.equal(store.name, 'Fresh graph');
+  assert.equal(store.offline, false);
+});
+
 test('queues and synchronizes remote page writes while offline', async () => {
   const store = new Graph.RemoteGraphStore({ name: 'Remote' });
   store.cache = { status: { name: 'Remote' }, files: { files: [], config: {} }, operations: [] };

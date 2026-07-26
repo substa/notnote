@@ -9256,7 +9256,10 @@ Open, save, export, and reach recent documents or headings from the command pale
         saveState.textContent = pending
           ? `Syncing ${pending} changes…`
           : "Checking connection…";
+        await store.reconnect();
         const synced = await store.syncPending();
+        if (graphStore !== store) return false;
+        await loadGraphSettings();
         const pages = await store.scan();
         if (graphStore !== store) return false;
         graphIndex = new NotnoteGraph.GraphIndex(pages);
@@ -9459,7 +9462,10 @@ Open, save, export, and reach recent documents or headings from the command pale
   saveState.textContent = "Loading…";
   (async () => {
     try {
-      const remote = await NotnoteGraph.RemoteGraphStore.connect();
+      const remote = await NotnoteGraph.RemoteGraphStore.connect(
+        "/api/graph",
+        { preferCache: true },
+      );
       graphStore = remote;
       graphSettings = null;
       await loadGraphSettings();
@@ -9509,7 +9515,10 @@ Open, save, export, and reach recent documents or headings from the command pale
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     navigator.serviceWorker
       .register("sw.js")
-      .then(syncAssetCacheSize)
+      .then((registration) => {
+        syncAssetCacheSize();
+        setTimeout(() => registration.update().catch(() => {}), 1000);
+      })
       .catch(() => {});
     navigator.serviceWorker.addEventListener(
       "controllerchange",

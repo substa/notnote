@@ -131,7 +131,7 @@ When a graph is open, these preferences and custom shortcuts are saved in `.notn
 
 ### Offline PWA use
 
-After a server graph has been opened successfully at least once, notnote keeps a local replica of its notes and settings in IndexedDB. The installed PWA can then open the graph without a connection, edit existing notes, and create new pages or journals. Changes are applied immediately to the local index and placed in a persistent synchronization queue.
+After a server graph has been opened successfully at least once, notnote keeps a local replica of its notes and settings in IndexedDB. Later PWA launches render that replica immediately instead of waiting for the network, then refresh server settings, files, and pending changes in the background. The installed PWA can therefore open the graph without a connection, edit existing notes, and create new pages or journals. Changes are applied immediately to the local index and placed in a persistent synchronization queue.
 
 The footer reports **Offline** and the number of pending changes. Synchronization starts when the browser reports that it is online, when the PWA returns to the foreground, or when its window receives focus. This does not rely on Background Sync, which is unavailable on iOS; the PWA must be open or resumed for synchronization to run.
 

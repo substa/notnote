@@ -1025,8 +1025,24 @@
       this.cache = null;
     }
 
-    static async connect(baseUrl = "/api/graph") {
+    static fromCache(cached, baseUrl = "/api/graph") {
+      if (!cached?.status || !cached?.files) return null;
+      const store = new RemoteGraphStore(cached.status, baseUrl);
+      store.cache = cached;
+      store.offline = true;
+      store.pendingCount = (cached.operations || []).length;
+      return store;
+    }
+
+    static async connect(
+      baseUrl = "/api/graph",
+      { preferCache = false } = {},
+    ) {
       const cached = await getRemoteGraph(baseUrl).catch(() => null);
+      if (preferCache) {
+        const store = RemoteGraphStore.fromCache(cached, baseUrl);
+        if (store) return store;
+      }
       try {
         const response = await fetch(`${baseUrl}/status`, {
           cache: "no-store",
@@ -1045,11 +1061,8 @@
         await saveRemoteGraph(baseUrl, store.cache).catch(() => {});
         return store;
       } catch (error) {
-        if (!cached?.status || !cached?.files) throw error;
-        const store = new RemoteGraphStore(cached.status, baseUrl);
-        store.cache = cached;
-        store.offline = true;
-        store.pendingCount = (cached.operations || []).length;
+        const store = RemoteGraphStore.fromCache(cached, baseUrl);
+        if (!store) throw error;
         return store;
       }
     }
@@ -1066,6 +1079,27 @@
       } catch {}
       if (response.status === 409) throw new ConflictError(message);
       throw new Error(message);
+    }
+
+    async reconnect() {
+      try {
+        const status = await this.api("/status");
+        if (!status.enabled) throw new Error("The server graph is disabled");
+        this.name = status.name || this.name;
+        if (!this.settingsConfig)
+          this.config = { ...defaultJournalConfig, ...(status.config || {}) };
+        this.cache = {
+          ...(this.cache || {}),
+          status,
+          operations: this.cache?.operations || [],
+        };
+        this.offline = false;
+        await this.persistCache();
+        return status;
+      } catch (error) {
+        this.offline = this.networkFailure(error);
+        throw error;
+      }
     }
 
     async ensurePermission() {

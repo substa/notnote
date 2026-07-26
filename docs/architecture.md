@@ -2,7 +2,7 @@
 
 ## Overview
 
-notnote has no compilation step or runtime package dependency. `index.html` applies the saved appearance with a small inline bootstrap before loading `styles.css`, `theme-config.css`, `graph.js`, and `app.js` directly. `sw.js` provides the offline application shell. `server.py` is an optional Python standard-library HTTP server for sharing one graph.
+notnote has no compilation step or runtime package dependency. `index.html` applies the saved appearance with a small inline bootstrap before loading `styles.css`, `theme-config.css`, `graph.js`, and `app.js` directly. `sw.js` serves its versioned offline application shell cache-first, while checking for a new Service Worker in the background. `server.py` is an optional Python standard-library HTTP server for sharing one graph.
 
 The root layout is deliberate: the browser receives the same files that a developer edits, so there is no generated directory that can drift from source. Large interface behavior remains in `app.js` to preserve a simple script loading order and deployment model. Pure graph parsing, indexing, date handling, and storage adapters live in `graph.js` and can be tested in Node without a DOM.
 
@@ -30,7 +30,7 @@ The browser receives a directory handle through the File System Access API. Mark
 
 The browser fetches the graph index from same-origin `/api/graph/*` routes. Saves include the last observed file revision. The server rejects stale writes and replaces files atomically. Server-Sent Events notify other clients of paths and revisions; note content is not placed in events.
 
-A server-backed browser stores a replica and pending operations in IndexedDB. Existing-note edits and new pages can be queued offline. The server graph remains authoritative after successful synchronization.
+A server-backed browser stores a replica and pending operations in IndexedDB. On later launches this replica is rendered immediately without waiting for the network; server status, settings, pending writes, and the authoritative file list are refreshed in the background. Existing-note edits and new pages can be queued offline. The server graph remains authoritative after successful synchronization.
 
 ### Optional Git history
 

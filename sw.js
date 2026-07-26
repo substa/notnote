@@ -1,5 +1,5 @@
 // Keep the application shell separate from bounded, user-opened graph assets.
-const CACHE = "notnote-editor-v76";
+const CACHE = "notnote-editor-v77";
 const ASSET_CACHE = "notnote-graph-assets-v1";
 const SETTINGS_CACHE = "notnote-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;
@@ -231,6 +231,21 @@ function handleGraphAsset(event) {
     );
 }
 
+async function shellResponse(request) {
+  const cache = await caches.open(CACHE);
+  const navigation = request.mode === "navigate";
+  const cached = navigation
+    ? await cache.match("./index.html")
+    : await cache.match(request, { ignoreSearch: true });
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok) {
+    const key = navigation ? "./index.html" : request;
+    await cache.put(key, response.clone());
+  }
+  return response;
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin)
@@ -242,23 +257,6 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
   if (event.request.mode !== "navigate" && !STATIC_PATHS.has(url.pathname))
     return;
-  event.respondWith(
-    fetch(event.request)
-      .then(async (response) => {
-        if (!response.ok)
-          return event.request.mode === "navigate"
-            ? (await caches.match("./index.html")) || response
-            : response;
-        if (event.request.mode !== "navigate") {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      })
-      .catch(() =>
-        event.request.mode === "navigate"
-          ? caches.match("./index.html")
-          : caches.match(event.request),
-      ),
-  );
+  // The versioned shell is complete at install time, so launches never wait for the network.
+  event.respondWith(shellResponse(event.request));
 });
