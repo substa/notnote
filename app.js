@@ -116,6 +116,7 @@
   const saveState = $("#saveState");
   const STORAGE_KEY = "notnote-markdown-documents-v1";
   const SETTINGS_KEY = "notnote-markdown-settings-v1";
+  const BOOT_APPEARANCE_KEY = "notnote-bootstrap-appearance-v1";
   const TASK_COMPLETIONS_KEY = "notnote-task-completions-v1";
   const localSettings = () => {
     try {
@@ -127,6 +128,21 @@
   let graphSettings = null;
   let graphSettingsTimer = null;
   const currentSettings = () => graphSettings || localSettings();
+  const bootAppearance = () => {
+    try {
+      return JSON.parse(localStorage.getItem(BOOT_APPEARANCE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  };
+  const rememberBootAppearance = (change) => {
+    try {
+      localStorage.setItem(
+        BOOT_APPEARANCE_KEY,
+        JSON.stringify({ ...bootAppearance(), ...change }),
+      );
+    } catch {}
+  };
 
   // Centralize serializable view state; transient DOM and storage handles stay outside this object.
   let state = {
@@ -8936,8 +8952,17 @@ Open, save, export, and reach recent documents or headings from the command pale
           ? "dark"
           : "light"
         : selectedTheme;
+    document.documentElement.classList.toggle(
+      "theme-dark",
+      effectiveTheme === "dark",
+    );
+    document.documentElement.classList.toggle(
+      "theme-system",
+      selectedTheme === "system",
+    );
     app.classList.toggle("theme-dark", effectiveTheme === "dark");
     app.classList.toggle("theme-system", selectedTheme === "system");
+    document.documentElement.style.colorScheme = effectiveTheme;
     $('meta[name="theme-color"]')?.setAttribute(
       "content",
       effectiveTheme === "dark" ? "#282725" : "#fdfcfb",
@@ -8948,11 +8973,13 @@ Open, save, export, and reach recent documents or headings from the command pale
       ? theme
       : "system";
     applyTheme();
+    rememberBootAppearance({ theme: selectedTheme });
     if (persist) saveSettings({ theme: selectedTheme });
   }
   function setAccent(color, persist = true) {
     selectedAccent = /^#[0-9a-f]{6}$/i.test(color || "") ? color : "#3f7fba";
     document.documentElement.style.setProperty("--accent", selectedAccent);
+    rememberBootAppearance({ accentColor: selectedAccent });
     if (persist) saveSettings({ accentColor: selectedAccent });
   }
   if (systemColorScheme.addEventListener)
@@ -9388,7 +9415,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   });
 
   // Initial state
-  let settings = localSettings();
+  let settings = { ...localSettings(), ...bootAppearance() };
   const savedTheme = ["light", "dark", "system"].includes(settings.theme)
     ? settings.theme
     : "system";

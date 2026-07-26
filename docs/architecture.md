@@ -2,7 +2,7 @@
 
 ## Overview
 
-notnote has no compilation step or runtime package dependency. `index.html` loads `styles.css`, `theme-config.css`, `graph.js`, and `app.js` directly. `sw.js` provides the offline application shell. `server.py` is an optional Python standard-library HTTP server for sharing one graph.
+notnote has no compilation step or runtime package dependency. `index.html` applies the saved appearance with a small inline bootstrap before loading `styles.css`, `theme-config.css`, `graph.js`, and `app.js` directly. `sw.js` provides the offline application shell. `server.py` is an optional Python standard-library HTTP server for sharing one graph.
 
 The root layout is deliberate: the browser receives the same files that a developer edits, so there is no generated directory that can drift from source. Large interface behavior remains in `app.js` to preserve a simple script loading order and deployment model. Pure graph parsing, indexing, date handling, and storage adapters live in `graph.js` and can be tested in Node without a DOM.
 

@@ -1209,11 +1209,69 @@ body.image-lightbox-open {
   }
 }
 
-/* Minimal, distraction-free shell */
-.initial-loading .document-title,
-.initial-loading .workspace {
+/* Paint a theme-correct startup surface while graph state is restored. */
+.startup-screen {
+  display: none;
+}
+.initial-loading > .titlebar,
+.initial-loading > .workspace,
+.initial-loading > .footer-menu {
   visibility: hidden;
 }
+.initial-loading .startup-screen {
+  position: fixed;
+  z-index: 300;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  background: var(--bg);
+  color: var(--text);
+}
+.startup-mark {
+  width: 70px;
+  height: 70px;
+  color: var(--text);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+.startup-mark rect {
+  stroke: var(--border);
+  fill: var(--chrome);
+}
+.startup-mark circle {
+  fill: currentColor;
+  stroke: none;
+}
+.startup-screen span {
+  font: 600 14px/1 var(--ui);
+  letter-spacing: 0.04em;
+}
+.startup-screen i {
+  width: 20px;
+  height: 20px;
+  margin-top: 4px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: startup-spin 700ms linear infinite;
+}
+@keyframes startup-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-screen i {
+    animation: none;
+  }
+}
+
+/* Minimal, distraction-free shell */
 .titlebar {
   height: 46px;
   justify-content: center;
