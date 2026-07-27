@@ -15,6 +15,7 @@
   const pageHierarchy = $("#pageHierarchy");
   const references = $("#references");
   const graphAutocomplete = $("#graphAutocomplete");
+  const blockContextMenu = $("#blockContextMenu");
   const mobileBlockToolbar = $("#mobileBlockToolbar");
   const voiceRecorderPanel = $("#voiceRecorder");
   const toastElement = $("#toast");
@@ -302,6 +303,30 @@
       keys: "Mod+Shift+L",
     },
     {
+      id: "blockCopyRef",
+      section: "Blocks",
+      label: "Copy block reference",
+      keys: "Mod+Alt+R",
+    },
+    {
+      id: "blockCopy",
+      section: "Blocks",
+      label: "Copy block and children",
+      keys: "Mod+Alt+C",
+    },
+    {
+      id: "blockMakeTemplate",
+      section: "Blocks",
+      label: "Make block a template",
+      keys: "Mod+Alt+T",
+    },
+    {
+      id: "blockDeleteTree",
+      section: "Blocks",
+      label: "Delete block and children",
+      keys: "Mod+Alt+Backspace",
+    },
+    {
       id: "blockIndent",
       section: "Blocks",
       label: "Indent block",
@@ -415,6 +440,7 @@
   let remoteRefreshTimer = null;
   let remoteRefreshPending = false;
   let activeGraphBlock = null;
+  let blockContextTarget = null;
   let selectedGraphBlockIds = new Set();
   let graphSelectionAnchor = null;
   let graphSelectionPagePath = null;
@@ -1919,9 +1945,8 @@ Open, save, export, and reach recent documents or headings from the command pale
     await loadGraphPage(page);
   }
 
-  async function openTemplatesPage() {
-    if (!graphStore) await openGraph();
-    if (!graphStore) return;
+  async function ensureTemplatesPage() {
+    if (!graphStore) return null;
     let page = graphStore.pages.find(
       (item) => item.name.toLowerCase() === "templates.md",
     );
@@ -1933,7 +1958,13 @@ Open, save, export, and reach recent documents or headings from the command pale
       });
       graphIndex.rebuild(graphStore.pages);
     }
-    await loadGraphPage(page);
+    return page;
+  }
+
+  async function openTemplatesPage() {
+    if (!graphStore) await openGraph();
+    const page = await ensureTemplatesPage();
+    if (page) await loadGraphPage(page);
   }
 
   function taskDashboardElement() {
@@ -2009,6 +2040,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   // Rebuild the outliner from the graph model after structural mutations.
   function renderGraphPage() {
     if (!state.graphMode || !state.graphDocument) return;
+    closeBlockContextMenu();
     activeGraphBlock = null;
     mobileBlockToolbar.hidden = true;
     const renderBlocks = (blocks, page = state.graphPage) => {
@@ -3825,6 +3857,41 @@ Open, save, export, and reach recent documents or headings from the command pale
     location.blocks.splice(location.index, 0, previous);
     graphMutationFocus(previous, 0);
     return previous;
+  }
+
+  function pasteGraphBlockTree(event) {
+    const field = event.target.closest?.(".graph-block-editor");
+    const block = activeGraphBlock?.block;
+    if (!field || !block || field !== activeGraphBlock.field) return false;
+    const text = event.clipboardData?.getData("text/plain") || "";
+    const firstLine = text.replace(/^\s*\n+/, "").split("\n", 1)[0];
+    if (!/^\s*[-+*](?:\s|$)/.test(firstLine)) return false;
+    const selectedAll =
+      field.selectionStart === 0 && field.selectionEnd === field.value.length;
+    if (field.selectionStart !== field.selectionEnd && !selectedAll)
+      return false;
+    const parsed = NotnoteGraph.parseDocument(text);
+    const pasted = NotnoteGraph.copyBlocksForPaste(parsed.blocks);
+    if (!pasted.length) return false;
+    const location = graphBlockLocation(block.id);
+    if (!location) return false;
+    event.preventDefault();
+    const snapshot = captureVimSnapshot(field);
+    const replace = !field.value.trim() || selectedAll;
+    if (replace) {
+      location.blocks.splice(location.index, 1, ...pasted);
+      if (state.graphZoomId === block.id)
+        state.graphZoomId = pasted.length === 1 ? pasted[0].id : null;
+    } else if (state.graphZoomId === block.id) {
+      block.children.push(...pasted);
+      block.collapsed = false;
+    } else location.blocks.splice(location.index + 1, 0, ...pasted);
+    pushVimSnapshot(vimUndoStack, snapshot);
+    vimRedoStack.length = 0;
+    graphChanged();
+    const focus = pasted.at(-1);
+    focusGraphBlock(focus.id, focus.content.length);
+    return true;
   }
 
   function insertedSingleLineChange(previous, current) {
@@ -6787,19 +6854,134 @@ Open, save, export, and reach recent documents or headings from the command pale
     return id ? graphBlockLocation(id)?.block : null;
   }
 
-  async function copyGraphBlockReference() {
-    const block = selectedGraphBlock();
+  async function persistContextDocument(context) {
+    if (!context || context.page.path === state.graphPage?.path) {
+      graphChanged();
+      renderGraphPage();
+      return;
+    }
+    const content = NotnoteGraph.serializeDocument(context.document);
+    await graphStore.writePage(context.page, content);
+    graphIndex.updatePage(context.page, content);
+    if (context.page.journal || journalDocuments.has(context.page.path))
+      journalDocuments.set(context.page.path, context.document);
+    renderGraphPage();
+  }
+
+  async function copyGraphBlockReference(
+    block = selectedGraphBlock(),
+    context = null,
+  ) {
     if (!state.graphMode || !block) return toast("Select a block first");
     const properties = NotnoteGraph.propertiesFrom(block.content);
     const uuid = properties.id || NotnoteGraph.newId();
     if (!properties.id) {
       block.content = `${block.content.replace(/\s+$/, "")}\n${block.content ? "" : ""}id:: ${uuid}`;
       block.uuid = uuid;
-      graphChanged();
-      renderGraphPage();
+      await persistContextDocument(context);
     }
     await navigator.clipboard.writeText(`((${uuid}))`);
     toast("Block reference copied");
+  }
+
+  async function copyGraphBlock(block) {
+    if (!block) return;
+    const markdown = NotnoteGraph.serializeDocument({
+      preamble: [],
+      blocks: [block],
+      trailingNewline: true,
+    });
+    await navigator.clipboard.writeText(markdown);
+    toast("Block copied");
+  }
+
+  async function makeGraphBlockTemplate(block) {
+    if (!block || !graphStore) return;
+    const suggestedName = block.content
+      .split("\n", 1)[0]
+      .replace(/^(?:TODO|DOING|DONE|LATER|NOW|WAITING|CANCELED|CANCELLED)\s+/, "")
+      .replace(/^#{1,6}\s+/, "")
+      .trim()
+      .slice(0, 60);
+    const name = prompt("Template name:", suggestedName)
+      ?.replace(/\s+/g, " ")
+      .trim();
+    if (!name) return;
+    const copiedBlocks = NotnoteGraph.copyBlocksForTemplate([block]);
+    const page = await ensureTemplatesPage();
+    if (!page) return;
+    const current = page.path === state.graphPage?.path;
+    const document = current
+      ? state.graphDocument
+      : graphIndex?.documents.get(page.path) ||
+        NotnoteGraph.parseDocument(page.content);
+    if (
+      NotnoteGraph.templatesFromDocument(document).some(
+        (template) =>
+          NotnoteGraph.normalizePage(template.name) ===
+          NotnoteGraph.normalizePage(name),
+      )
+    )
+      return toast(`Template “${name}” already exists`);
+    const definition = {
+      id: NotnoteGraph.newId(),
+      uuid: null,
+      content: name,
+      marker: "-",
+      children: copiedBlocks,
+      collapsed: false,
+    };
+    if (current) {
+      const snapshot = captureVimSnapshot();
+      document.blocks.push(definition);
+      pushVimSnapshot(vimUndoStack, snapshot);
+      vimRedoStack.length = 0;
+      graphChanged();
+      renderGraphPage();
+    } else {
+      document.blocks.push(definition);
+      const content = NotnoteGraph.serializeDocument(document);
+      await graphStore.writePage(page, content);
+      graphIndex.updatePage(page, content);
+    }
+    toast(`Template “${name}” created`);
+  }
+
+  async function deleteGraphBlock(block, context = null) {
+    if (!confirm("Delete this block and all its nested blocks?")) return false;
+    const current = !context || context.page.path === state.graphPage?.path;
+    const document = context?.document || state.graphDocument;
+    const location = graphBlockLocation(block?.id, document?.blocks);
+    if (!location) return false;
+    commitGraphBlock();
+    const snapshot = current ? captureVimSnapshot() : null;
+    location.blocks.splice(location.index, 1);
+    let focus =
+      location.blocks[location.index] ||
+      location.blocks[location.index - 1] ||
+      location.parent;
+    if (!document.blocks.length) {
+      focus = {
+        id: NotnoteGraph.newId(),
+        uuid: null,
+        content: "",
+        marker: "-",
+        children: [],
+        collapsed: false,
+      };
+      document.blocks.push(focus);
+    }
+    if (current) {
+      if (state.graphZoomId && !graphBlockLocation(state.graphZoomId))
+        state.graphZoomId = null;
+      pushVimSnapshot(vimUndoStack, snapshot);
+      vimRedoStack.length = 0;
+      graphChanged();
+      if (focus) focusGraphBlock(focus.id);
+      else renderGraphPage();
+    } else await persistContextDocument(context);
+    toast("Block deleted");
+    return true;
   }
 
   function zoomGraphBlock() {
@@ -8699,10 +8881,123 @@ Open, save, export, and reach recent documents or headings from the command pale
   });
   outliner.addEventListener("pointerup", cancelTaskLongPress);
   outliner.addEventListener("pointercancel", cancelTaskLongPress);
+  outliner.addEventListener("paste", pasteGraphBlockTree);
+
+  function closeBlockContextMenu() {
+    blockContextMenu.hidden = true;
+    blockContextTarget = null;
+  }
+
+  function openBlockContextMenu(context, event, trigger) {
+    closeBlockContextMenu();
+    blockContextTarget = context;
+    $$('[data-block-context-shortcut]', blockContextMenu).forEach((label) => {
+      label.textContent = shortcutLabel(
+        shortcutValue(label.dataset.blockContextShortcut),
+      );
+    });
+    blockContextMenu.hidden = false;
+    const triggerBounds = trigger.getBoundingClientRect();
+    const menuBounds = blockContextMenu.getBoundingClientRect();
+    const x = event.clientX || triggerBounds.right;
+    const y = event.clientY || triggerBounds.bottom;
+    blockContextMenu.style.left =
+      `${Math.max(8, Math.min(x, window.innerWidth - menuBounds.width - 8))}px`;
+    blockContextMenu.style.top =
+      `${Math.max(8, Math.min(y, window.innerHeight - menuBounds.height - 8))}px`;
+    blockContextMenu.querySelector("button")?.focus({ preventScroll: true });
+  }
+
   outliner.addEventListener("contextmenu", (event) => {
+    const bullet = event.target.closest("[data-block-bullet]");
+    const node = bullet?.closest(".block-node");
+    const page = graphStore?.pages.find(
+      (item) => item.path === node?.dataset.pagePath,
+    );
+    const document =
+      page?.path === state.graphPage?.path
+        ? state.graphDocument
+        : journalDocuments.get(page?.path) ||
+          graphIndex?.documents.get(page?.path);
+    const block = graphBlockLocation(
+      bullet?.dataset.blockBullet,
+      document?.blocks,
+    )?.block;
+    if (bullet && page && document && block) {
+      event.preventDefault();
+      openBlockContextMenu({ block, page, document }, event, bullet);
+      return;
+    }
+    closeBlockContextMenu();
     if (event.target.closest("[data-task-checkbox-page], [data-task-block]"))
       event.preventDefault();
   });
+  function selectedBlockActionContext() {
+    if (blockContextTarget?.block) return blockContextTarget;
+    let block = selectedGraphBlock();
+    if (
+      !block &&
+      selectedGraphBlockIds.size === 1 &&
+      graphSelectionPagePath === state.graphPage?.path
+    )
+      block = graphBlockLocation([...selectedGraphBlockIds][0])?.block;
+    return block && state.graphPage && state.graphDocument
+      ? { block, page: state.graphPage, document: state.graphDocument }
+      : null;
+  }
+
+  async function runBlockContextAction(action, context) {
+    if (!context?.block) return toast("Select a block first");
+    commitGraphBlock();
+    if (action === "copy-ref")
+      await copyGraphBlockReference(context.block, context);
+    else if (action === "copy-block") await copyGraphBlock(context.block);
+    else if (action === "make-template")
+      await makeGraphBlockTemplate(context.block);
+    else if (action === "delete-block")
+      await deleteGraphBlock(context.block, context);
+  }
+
+  blockContextMenu.addEventListener("click", async (event) => {
+    const action = event.target.closest("[data-block-context-action]")?.dataset
+      .blockContextAction;
+    const context = blockContextTarget;
+    if (!action || !context?.block) return;
+    closeBlockContextMenu();
+    try {
+      await runBlockContextAction(action, context);
+    } catch (error) {
+      toast(error.message || "Could not complete the block action");
+    }
+  });
+  blockContextMenu.addEventListener("keydown", (event) => {
+    const items = $$('[role="menuitem"]', blockContextMenu);
+    const index = items.indexOf(document.activeElement);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeBlockContextMenu();
+      outliner.focus({ preventScroll: true });
+    } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+      event.preventDefault();
+      const target =
+        event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? items.length - 1
+            : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) %
+              items.length;
+      items[target]?.focus();
+    }
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!blockContextMenu.hidden && !blockContextMenu.contains(event.target))
+      closeBlockContextMenu();
+  });
+  notnoteWrap.addEventListener("scroll", closeBlockContextMenu, {
+    passive: true,
+  });
+  window.addEventListener("resize", closeBlockContextMenu);
+
   outliner.addEventListener("pointerdown", (event) => {
     if (!event.metaKey && !event.ctrlKey && !event.shiftKey) return;
     if (event.target.closest("[data-task-checkbox-page], [data-task-block]"))
@@ -9239,6 +9534,21 @@ Open, save, export, and reach recent documents or headings from the command pale
       return;
     }
     if (!$("#commandPalette").hidden) return;
+    const blockShortcut = [
+      ["blockCopyRef", "copy-ref"],
+      ["blockCopy", "copy-block"],
+      ["blockMakeTemplate", "make-template"],
+      ["blockDeleteTree", "delete-block"],
+    ].find(([id]) => shortcutMatches(id, event));
+    if (state.graphMode && blockShortcut) {
+      event.preventDefault();
+      const context = selectedBlockActionContext();
+      closeBlockContextMenu();
+      runBlockContextAction(blockShortcut[1], context).catch((error) =>
+        toast(error.message || "Could not complete the block action"),
+      );
+      return;
+    }
     if (shortcutMatches("tasks", event)) {
       event.preventDefault();
       requestAction(openTasksPage);

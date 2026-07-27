@@ -350,6 +350,33 @@
     });
   }
 
+  function copyBlockTree(blocks, omittedProperties, createId = newId) {
+    const propertyPattern = new RegExp(
+      `^\\s*(?:${omittedProperties.join("|")})::`,
+      "i",
+    );
+    const clone = (block) => ({
+      id: createId(),
+      uuid: null,
+      content: String(block?.content || "")
+        .split("\n")
+        .filter((line) => !propertyPattern.test(line))
+        .join("\n"),
+      marker: block?.marker || "-",
+      children: (block?.children || []).map(clone),
+      collapsed: false,
+    });
+    return (blocks || []).map(clone);
+  }
+
+  function copyBlocksForTemplate(blocks, createId = newId) {
+    return copyBlockTree(blocks, ["id", "completed-at"], createId);
+  }
+
+  function copyBlocksForPaste(blocks, createId = newId) {
+    return copyBlockTree(blocks, ["id"], createId);
+  }
+
   function instantiateTemplate(blocks, variables = {}, createId = newId) {
     let cursorBlockId = null;
     let cursorPosition = null;
@@ -1909,6 +1936,8 @@
     flattenBlocks,
     propertiesFrom,
     templatesFromDocument,
+    copyBlocksForTemplate,
+    copyBlocksForPaste,
     instantiateTemplate,
     isEmptyPageContent,
     pageReferences,

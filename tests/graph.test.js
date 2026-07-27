@@ -41,6 +41,43 @@ test('discovers named templates from top-level blocks with children', () => {
   );
 });
 
+test('copies a block tree into a template without persistent task metadata', () => {
+  const source = Graph.parseDocument([
+    '- TODO Parent {{date}}',
+    '  id:: existing-id',
+    '  completed-at:: 2026-07-27T09:30:00Z',
+    '  - Child {{cursor}}',
+    ''
+  ].join('\n')).blocks;
+  let id = 0;
+  const copied = Graph.copyBlocksForTemplate(source, () => `copy-${++id}`);
+
+  assert.equal(copied[0].id, 'copy-1');
+  assert.equal(copied[0].uuid, null);
+  assert.equal(copied[0].content, 'TODO Parent {{date}}');
+  assert.equal(copied[0].children[0].id, 'copy-2');
+  assert.equal(copied[0].children[0].content, 'Child {{cursor}}');
+  assert.equal(source[0].content.includes('existing-id'), true);
+});
+
+test('prepares pasted block trees with fresh IDs and preserved completion data', () => {
+  const source = Graph.parseDocument([
+    '- DONE Parent',
+    '  id:: existing-id',
+    '  completed-at:: 2026-07-27T09:30:00Z',
+    '  - Child',
+    ''
+  ].join('\n')).blocks;
+  let id = 0;
+  const copied = Graph.copyBlocksForPaste(source, () => `paste-${++id}`);
+
+  assert.equal(copied[0].id, 'paste-1');
+  assert.equal(copied[0].uuid, null);
+  assert.equal(copied[0].content.includes('id::'), false);
+  assert.equal(copied[0].content.includes('completed-at::'), true);
+  assert.equal(copied[0].children[0].id, 'paste-2');
+});
+
 test('instantiates template trees with fresh IDs, variables, and a cursor', () => {
   const source = Graph.parseDocument([
     '- Template',

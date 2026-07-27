@@ -601,6 +601,53 @@ svg {
   border-top: 1px solid var(--border);
   margin: 5px;
 }
+.block-context-menu {
+  position: fixed;
+  z-index: 110;
+  display: block;
+  width: 250px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--chrome);
+  box-shadow: 0 12px 36px #0003;
+}
+.block-context-menu[hidden] {
+  display: none;
+}
+.block-context-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+}
+.block-context-menu kbd {
+  flex: none;
+  color: var(--muted);
+  font: 10px/1 var(--ui);
+}
+.block-context-menu button:hover,
+.block-context-menu button:focus-visible {
+  background: var(--code);
+  color: var(--accent);
+}
+.block-context-menu button.danger:hover,
+.block-context-menu button.danger:focus-visible {
+  color: #c45b5b;
+}
+.block-context-menu hr {
+  margin: 5px;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
 .findbar {
   position: absolute;
   z-index: 15;

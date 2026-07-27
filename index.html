@@ -711,6 +711,32 @@
         hidden
       ></div>
       <div
+        id="blockContextMenu"
+        class="block-context-menu"
+        role="menu"
+        aria-label="Block actions"
+        hidden
+      >
+        <button type="button" role="menuitem" data-block-context-action="copy-ref">
+          <span>Copy block ref</span><kbd data-block-context-shortcut="blockCopyRef"></kbd>
+        </button>
+        <button type="button" role="menuitem" data-block-context-action="copy-block">
+          <span>Copy block</span><kbd data-block-context-shortcut="blockCopy"></kbd>
+        </button>
+        <button type="button" role="menuitem" data-block-context-action="make-template">
+          <span>Make a template</span><kbd data-block-context-shortcut="blockMakeTemplate"></kbd>
+        </button>
+        <hr />
+        <button
+          type="button"
+          role="menuitem"
+          class="danger"
+          data-block-context-action="delete-block"
+        >
+          <span>Delete block</span><kbd data-block-context-shortcut="blockDeleteTree"></kbd>
+        </button>
+      </div>
+      <div
         id="mobileBlockToolbar"
         class="mobile-block-toolbar"
         role="toolbar"
