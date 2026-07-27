@@ -331,6 +331,72 @@
     return document;
   }
 
+  function templateName(block) {
+    return String(block?.content || "")
+      .split("\n", 1)[0]
+      .trim()
+      .replace(/^#{1,6}\s+/, "")
+      .trim();
+  }
+
+  function templatesFromDocument(document) {
+    const seen = new Set();
+    return (document?.blocks || []).flatMap((block) => {
+      const name = templateName(block);
+      const key = normalizePage(name);
+      if (!name || !block.children?.length || seen.has(key)) return [];
+      seen.add(key);
+      return [{ name, block }];
+    });
+  }
+
+  function instantiateTemplate(blocks, variables = {}, createId = newId) {
+    let cursorBlockId = null;
+    let cursorPosition = null;
+    const firstBlock = { id: null, position: 0 };
+    const expandContent = (content, blockId) => {
+      let value = String(content || "")
+        .split("\n")
+        .filter((line) => !/^\s*(?:id|completed-at)::/i.test(line))
+        .join("\n")
+        .replace(/\{\{\s*(date|time|today|page)\s*\}\}/gi, (whole, key) =>
+          Object.hasOwn(variables, key.toLowerCase())
+            ? String(variables[key.toLowerCase()])
+            : whole,
+        );
+      const marker = "{{cursor}}";
+      const markerIndex = value.indexOf(marker);
+      if (markerIndex >= 0 && cursorBlockId === null) {
+        cursorBlockId = blockId;
+        cursorPosition = markerIndex;
+      }
+      return value.replace(/\{\{cursor\}\}/gi, "");
+    };
+    const clone = (block) => {
+      const id = createId();
+      const content = expandContent(block.content, id);
+      if (firstBlock.id === null) {
+        firstBlock.id = id;
+        firstBlock.position = content.length;
+      }
+      return {
+        id,
+        uuid: null,
+        content,
+        marker: block.marker || "-",
+        children: (block.children || []).map(clone),
+        collapsed: false,
+      };
+    };
+    const result = (blocks || []).map(clone);
+    return {
+      blocks: result,
+      cursorBlockId: cursorBlockId || firstBlock.id,
+      cursorPosition:
+        cursorPosition === null ? firstBlock.position : cursorPosition,
+    };
+  }
+
   // Serialize the tree deterministically so structural edits produce small Markdown diffs.
   function serializeDocument(document) {
     const output = [...(document.preamble || [])];
@@ -1842,6 +1908,8 @@
     serializeDocument,
     flattenBlocks,
     propertiesFrom,
+    templatesFromDocument,
+    instantiateTemplate,
     isEmptyPageContent,
     pageReferences,
     blockReferences,

@@ -32,6 +32,7 @@
 - File-based graphs with pages, journals, nested blocks, zoom, collapse, and block selection.
 - `[[page references]]`, `((block references))`, linked references, unlinked references, and page hierarchy.
 - Task states, scheduled dates, task overview, and calendar navigation.
+- Reusable Markdown block templates with dynamic date, journal, page, and cursor placeholders.
 - Journal history, previous entries, and an expandable “on this day” view.
 - Local attachments, images, audio, video, code blocks, quotes, tables, and common Markdown formatting.
 - Command palette, customizable keyboard shortcuts, and optional Vim navigation.

@@ -21,6 +21,60 @@ test('parses and serializes nested Logseq blocks', () => {
   assert.equal(Graph.serializeDocument(document), markdown);
 });
 
+test('discovers named templates from top-level blocks with children', () => {
+  const document = Graph.parseDocument([
+    'title:: Templates',
+    '',
+    '- Meeting',
+    '  - Date: {{date}}',
+    '- Empty template',
+    '- Meeting',
+    '  - Duplicate',
+    '- Retrospective',
+    '  - Notes',
+    ''
+  ].join('\n'));
+
+  assert.deepEqual(
+    Array.from(Graph.templatesFromDocument(document), template => template.name),
+    ['Meeting', 'Retrospective']
+  );
+});
+
+test('instantiates template trees with fresh IDs, variables, and a cursor', () => {
+  const source = Graph.parseDocument([
+    '- Template',
+    '  - Meeting on {{date}} at {{time}}',
+    '    id:: old-id',
+    '    completed-at:: 2026-01-01T10:00:00Z',
+    '    - Page: [[{{page}}]]',
+    '    - Journal: {{today}}',
+    '  - Notes: {{cursor}}',
+    ''
+  ].join('\n')).blocks[0].children;
+  let id = 0;
+  const result = Graph.instantiateTemplate(
+    source,
+    {
+      date: '2026-07-27',
+      time: '09:30',
+      page: 'Project',
+      today: '[[Jul 27th, 2026]]'
+    },
+    () => `new-${++id}`
+  );
+
+  assert.equal(result.blocks[0].id, 'new-1');
+  assert.equal(result.blocks[0].uuid, null);
+  assert.equal(result.blocks[0].content, 'Meeting on 2026-07-27 at 09:30');
+  assert.equal(result.blocks[0].children[0].content, 'Page: [[Project]]');
+  assert.equal(result.blocks[0].children[1].content, 'Journal: [[Jul 27th, 2026]]');
+  assert.equal(result.blocks[1].content, 'Notes: ');
+  assert.equal(result.cursorBlockId, result.blocks[1].id);
+  assert.equal(result.cursorPosition, 7);
+  assert.equal(source[0].content.includes('id:: old-id'), true);
+});
+
 test('does not serialize the transient new-block placeholder', () => {
   const document = Graph.parseDocument('- existing\n');
   document.blocks.push({

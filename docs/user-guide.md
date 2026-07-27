@@ -59,6 +59,7 @@ The command palette supports the following application commands. Commands marked
 | **New graph page** | Graph | Prompts for a title and creates a page in `pages/`. |
 | **Today journal** | Graph | Opens today's journal. |
 | **Task dashboard** | Graph | Opens the complete task dashboard. |
+| **Open templates** | Graph | Opens or creates the Markdown page containing reusable block templates. |
 | **All pages** | Graph | Opens the searchable alphabetical page directory. |
 | **Previous page** | Graph | Goes back in graph navigation history. |
 | **Next page** | Graph | Goes forward in graph navigation history. |
@@ -100,6 +101,7 @@ Inside a graph block, type `/` to open inline commands:
 | `/date picker` | Opens the date picker and inserts a reference to the selected journal date. |
 | `/upload` | Uploads a file to `assets/` and inserts its Markdown link. |
 | `/record` | Records a voice note, saves it to `assets/`, and embeds its audio player. |
+| `/template` | Searches reusable templates and inserts their block structure. |
 
 Type `<` in a graph block to use structural commands:
 
@@ -242,6 +244,24 @@ Changes made from a task summary or dashboard are written back to the task's ori
 Dashboard tasks with a scheduled date are ordered from the nearest date to the farthest. Clicking a scheduled date opens the mini calendar on that month with the currently assigned day selected. Tasks in progress appear at the bottom of **Today** in the journal summary, mini calendar, and complete dashboard. When completed, they remain visible as done in the daily view for the rest of the day, including tasks created on earlier dates. Completed tasks are ordered by completion time, newest first. When notnote marks a task as `DONE`, it records a hidden `completed-at::` property in the block; existing completed tasks without this property fall back to their journal date or page modification time.
 
 Task-state changes participate in the regular undo/redo history, including changes made from summaries and dashboards. Use `⌘/Ctrl + Z` to restore the previous state and `⌘/Ctrl + Shift + Z` (or `⌘/Ctrl + Y`) to reapply it. Undo and redo update the task in its original Markdown page and show a confirmation message with the restored state.
+
+## Templates
+
+Run **Open templates** from the command palette to open or create `pages/templates.md`. Each top-level block names a template, while its child blocks define the structure that will be inserted:
+
+```text
+- Meeting
+  - Date: {{date}}
+  - Participants:
+  - ## Agenda
+    - {{cursor}}
+  - ## Actions
+    - TODO
+```
+
+In an otherwise empty graph block, type `/template`, optionally followed by part of a template name, and select a result. The command block is replaced by a fresh copy of the template's children. Nested blocks and bullet markers are preserved, while block IDs and completion timestamps from the definition are not copied.
+
+Templates support `{{date}}` (`yyyy-MM-dd`), `{{time}}` (`HH:mm`), `{{today}}` (a reference to today's journal), `{{page}}` (the current page title), and `{{cursor}}` (the initial caret position). Unknown placeholders remain unchanged. Template definitions are ordinary Markdown and follow the graph across local, remote, and offline use.
 
 ## References
 

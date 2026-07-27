@@ -1919,6 +1919,23 @@ Open, save, export, and reach recent documents or headings from the command pale
     await loadGraphPage(page);
   }
 
+  async function openTemplatesPage() {
+    if (!graphStore) await openGraph();
+    if (!graphStore) return;
+    let page = graphStore.pages.find(
+      (item) => item.name.toLowerCase() === "templates.md",
+    );
+    if (!page) {
+      page = await graphStore.createPage("Templates", {
+        filename: "templates",
+        content:
+          "title:: Templates\n\n<!-- Each top-level block names a template; /template inserts its child blocks. -->\n",
+      });
+      graphIndex.rebuild(graphStore.pages);
+    }
+    await loadGraphPage(page);
+  }
+
   function taskDashboardElement() {
     const groups = taskGroups();
     const dashboard = document.createElement("section");
@@ -4029,7 +4046,24 @@ Open, save, export, and reach recent documents or headings from the command pale
     },
     { title: "/upload", keywords: "attach file asset", upload: true },
     { title: "/record", keywords: "voice note microphone audio", record: true },
+    {
+      title: "/template",
+      keywords: "template reusable predefined block structure",
+      templatePicker: true,
+    },
   ];
+  function graphTemplates() {
+    const page = graphStore?.pages.find(
+      (item) => item.name.toLowerCase() === "templates.md",
+    );
+    if (!page) return [];
+    const document =
+      page.path === state.graphPage?.path
+        ? state.graphDocument
+        : graphIndex?.documents.get(page.path) ||
+          NotnoteGraph.parseDocument(page.content);
+    return NotnoteGraph.templatesFromDocument(document);
+  }
   function pageMatchRank(value, query) {
     const normalized = NotnoteGraph.normalizePage(value);
     if (!query || normalized === query) return 0;
@@ -4104,13 +4138,30 @@ Open, save, export, and reach recent documents or headings from the command pale
       const rawQuery = slashMatch[1].trim();
       const [name = "", ...remainder] = rawQuery.split(/\s+/);
       const typedCommand = `/${name.toLowerCase()}`;
-      autocompleteItems = slashCommands
-        .filter((command) => command.title.startsWith(typedCommand))
-        .map((command) => ({
-          ...command,
-          slash: true,
-          remainder: remainder.join(" "),
-        }));
+      if (name.toLowerCase() === "template") {
+        const query = NotnoteGraph.normalizePage(remainder.join(" "));
+        autocompleteItems = graphTemplates()
+          .filter(
+            (template) =>
+              !query ||
+              NotnoteGraph.normalizePage(template.name).includes(query),
+          )
+          .slice(0, 12)
+          .map((template) => ({
+            title: template.name,
+            slash: true,
+            template: true,
+            templateDefinition: template,
+          }));
+      } else {
+        autocompleteItems = slashCommands
+          .filter((command) => command.title.startsWith(typedCommand))
+          .map((command) => ({
+            ...command,
+            slash: true,
+            remainder: remainder.join(" "),
+          }));
+      }
     } else if (wikiMatch && graphIndex) {
       const title = wikiMatch[1].trim();
       if (title.length < 2) return hideGraphAutocomplete();
@@ -4140,7 +4191,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     graphAutocomplete.innerHTML = autocompleteItems
       .map(
         (item, index) =>
-          `<button type="button" data-autocomplete-index="${index}" class="${index === 0 ? "selected" : ""}">${item.create ? `<span class="autocomplete-create">Create page</span>` : item.slash || item.angleCommand ? `<span class="autocomplete-create">Command</span>` : item.blockAutocomplete ? `<span class="autocomplete-create">Block · ${escapeHtml(item.page.title)}</span>` : ""}${escapeHtml(item.title)}</button>`,
+          `<button type="button" data-autocomplete-index="${index}" class="${index === 0 ? "selected" : ""}">${item.create ? `<span class="autocomplete-create">Create page</span>` : item.template ? `<span class="autocomplete-create">Template</span>` : item.slash || item.angleCommand ? `<span class="autocomplete-create">Command</span>` : item.blockAutocomplete ? `<span class="autocomplete-create">Block · ${escapeHtml(item.page.title)}</span>` : ""}${escapeHtml(item.title)}</button>`,
       )
       .join("");
     graphAutocomplete.hidden = false;
@@ -4246,7 +4297,42 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (item.slash) {
       const start = before.lastIndexOf("/");
       const end = field.selectionStart;
-      if (item.taskStatus) {
+      if (item.templatePicker) {
+        field.setRangeText("/template ", start, end, "end");
+        field.dispatchEvent(new InputEvent("input", { bubbles: true }));
+        if (graphTemplates().length) showGraphAutocomplete(field);
+        else {
+          hideGraphAutocomplete();
+          toast("Create a template with the Open templates command first");
+        }
+        field.focus();
+      } else if (item.template) {
+        if (!/^\s*\/template(?:\s+.*)?\s*$/i.test(field.value)) {
+          hideGraphAutocomplete();
+          return toast("Insert a template from an otherwise empty block");
+        }
+        const location = graphBlockLocation(block.id);
+        const sourceBlocks = item.templateDefinition?.block?.children || [];
+        if (!location || !sourceBlocks.length) {
+          hideGraphAutocomplete();
+          return toast("This template has no blocks");
+        }
+        const now = new Date();
+        const today = NotnoteGraph.journalInfo(now, graphStore?.config);
+        const instance = NotnoteGraph.instantiateTemplate(sourceBlocks, {
+          date: today.date,
+          time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+          today: `[[${today.title}]]`,
+          page: state.graphPage?.title || "",
+        });
+        location.blocks.splice(location.index, 1, ...instance.blocks);
+        if (state.graphZoomId === block.id)
+          state.graphZoomId = instance.blocks[0]?.id || null;
+        hideGraphAutocomplete();
+        graphChanged();
+        focusGraphBlock(instance.cursorBlockId, instance.cursorPosition);
+        toast(`Template “${item.templateDefinition.name}” inserted`);
+      } else if (item.taskStatus) {
         const replacement = `${item.taskStatus}${item.remainder ? ` ${item.remainder}` : " "}`;
         field.setRangeText(replacement, start, end, "end");
         field.dispatchEvent(new InputEvent("input", { bubbles: true }));
@@ -6780,6 +6866,11 @@ Open, save, export, and reach recent documents or headings from the command pale
       shortcutId: "tasks",
       keywords: "tasks todo doing done dashboard all",
       run: () => requestAction(openTasksPage),
+    },
+    {
+      label: "Open templates",
+      keywords: "template reusable predefined block structure",
+      run: () => requestAction(openTemplatesPage),
     },
     {
       label: "All pages",
