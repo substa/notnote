@@ -23,7 +23,7 @@ class StartupSecurityTests(unittest.TestCase):
         scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, re.DOTALL)
         self.assertTrue(scripts)
         self.assertTrue(all(not script.strip() for script in scripts))
-        self.assertIn('src="appearance-bootstrap.js"', html)
+        self.assertIn('src="/appearance-bootstrap.js"', html)
 
 
 class StaticRouteTests(unittest.TestCase):
