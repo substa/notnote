@@ -106,6 +106,7 @@ STATIC_FILES = {
     "/settings/shortcuts/index.html",
     "/settings/git/index.html",
     "/assets/icons/notnote.svg",
+    "/assets/icons/notnote.png",
     "/assets/icons/favicon.ico",
     "/assets/icons/favicon-16x16.png",
     "/assets/icons/favicon-32x32.png",

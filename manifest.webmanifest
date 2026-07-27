@@ -9,9 +9,9 @@
   "theme_color": "#fdfcfb",
   "icons": [
     {
-      "src": "assets/icons/notnote.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "assets/icons/notnote.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
       "purpose": "any"
     },
     {

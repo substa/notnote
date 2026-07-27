@@ -1,5 +1,5 @@
 // Keep the application shell separate from bounded, user-opened graph assets.
-const CACHE = "notnote-editor-v85";
+const CACHE = "notnote-editor-v86";
 const ASSET_CACHE = "notnote-graph-assets-v1";
 const SETTINGS_CACHE = "notnote-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;
@@ -23,7 +23,7 @@ const ASSETS = [
   "./settings/shortcuts/index.html",
   "./settings/git/index.html",
   "./manifest.webmanifest",
-  "./assets/icons/notnote.svg",
+  "./assets/icons/notnote.png",
   "./assets/icons/favicon.ico",
   "./assets/icons/favicon-16x16.png",
   "./assets/icons/favicon-32x32.png",
