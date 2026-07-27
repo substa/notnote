@@ -3899,6 +3899,7 @@ body.image-lightbox-open {
   .context-block-toggle {
     width: 28px;
     margin-left: -14px;
+    -webkit-tap-highlight-color: transparent;
   }
   .block-toggle::before,
   .context-block-toggle::before {
