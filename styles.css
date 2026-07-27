@@ -3847,6 +3847,16 @@ body.image-lightbox-open {
   }
 }
 @media (hover: none) and (pointer: coarse) {
+  /* Enlarge collapse targets into the unused left gutter without changing indentation. */
+  .block-toggle,
+  .context-block-toggle {
+    width: 28px;
+    margin-left: -14px;
+  }
+  .block-toggle::before,
+  .context-block-toggle::before {
+    left: 17px;
+  }
   .mobile-block-toolbar {
     display: flex;
   }
