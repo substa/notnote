@@ -1,5 +1,3 @@
-import base64
-import hashlib
 import json
 import re
 import shutil
@@ -12,7 +10,6 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from server import (
-    BOOTSTRAP_SCRIPT_HASH,
     GitSyncManager,
     NotnoteHandler,
     content_mentions_asset,
@@ -21,12 +18,12 @@ from server import (
 
 
 class StartupSecurityTests(unittest.TestCase):
-    def test_inline_theme_bootstrap_matches_csp_hash(self):
+    def test_scripts_are_external_for_strict_csp(self):
         html = (Path(__file__).parents[1] / "index.html").read_text(encoding="utf-8")
-        scripts = re.findall(r"<script>(.*?)</script>", html, re.DOTALL)
-        self.assertEqual(len(scripts), 1)
-        digest = base64.b64encode(hashlib.sha256(scripts[0].encode()).digest()).decode()
-        self.assertEqual(BOOTSTRAP_SCRIPT_HASH, f"sha256-{digest}")
+        scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", html, re.DOTALL)
+        self.assertTrue(scripts)
+        self.assertTrue(all(not script.strip() for script in scripts))
+        self.assertIn('src="appearance-bootstrap.js"', html)
 
 
 class StaticRouteTests(unittest.TestCase):

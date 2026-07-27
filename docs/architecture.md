@@ -2,7 +2,7 @@
 
 ## Overview
 
-notnote has no compilation step or runtime package dependency. `index.html` applies the saved appearance with a small inline bootstrap before loading `styles.css`, `theme-config.css`, `graph.js`, and `app.js` directly. `sw.js` serves its versioned offline application shell cache-first, while checking for a new Service Worker in the background. `server.py` is an optional Python standard-library HTTP server for sharing one graph.
+notnote has no compilation step or runtime package dependency. `index.html` applies the saved appearance with `appearance-bootstrap.js` before loading `styles.css`, `theme-config.css`, `graph.js`, and `app.js` directly. `sw.js` serves its versioned offline application shell cache-first, while checking for a new Service Worker in the background. `server.py` is an optional Python standard-library HTTP server for sharing one graph.
 
 The root layout is deliberate: the browser receives the same files that a developer edits, so there is no generated directory that can drift from source. Large interface behavior remains in `app.js` to preserve a simple script loading order and deployment model. Pure graph parsing, indexing, date handling, and storage adapters live in `graph.js` and can be tested in Node without a DOM.
 
@@ -11,6 +11,7 @@ The root layout is deliberate: the browser receives the same files that a develo
 | Path | Responsibility |
 | --- | --- |
 | `index.html` | Accessible application structure and dialogs. |
+| `appearance-bootstrap.js` | Applies saved theme settings before the interface is rendered. |
 | `app.js` | Rendering, editor commands, user interaction, and application state. |
 | `graph.js` | Markdown graph model, index, filesystem/remote adapters, and offline queue. |
 | `styles.css` | Layout and component styling. |

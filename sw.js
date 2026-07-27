@@ -1,5 +1,5 @@
 // Keep the application shell separate from bounded, user-opened graph assets.
-const CACHE = "notnote-editor-v86";
+const CACHE = "notnote-editor-v87";
 const ASSET_CACHE = "notnote-graph-assets-v1";
 const SETTINGS_CACHE = "notnote-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;
@@ -14,6 +14,7 @@ const ASSETS = [
   "./index.html",
   "./styles.css",
   "./theme-config.css",
+  "./appearance-bootstrap.js",
   "./graph.js",
   "./app.js",
   "./docs/index.html",
@@ -36,12 +37,15 @@ const STATIC_PATHS = new Set(
   ASSETS.map((path) => new URL(path, self.location.href).pathname),
 );
 
-// Precache the complete shell so startup never depends on partial asset availability.
+// Cache assets independently: one temporarily unavailable optional resource must not
+// abort installation of the Service Worker or discard the rest of the shell.
 self.addEventListener("install", (event) =>
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(ASSETS))
+      .then((cache) =>
+        Promise.allSettled(ASSETS.map((path) => cache.add(path))),
+      )
       .then(() => self.skipWaiting()),
   ),
 );

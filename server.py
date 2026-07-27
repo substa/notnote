@@ -28,7 +28,6 @@ MAX_BODY = 8 * 1024 * 1024
 MAX_ASSET_BODY = 64 * 1024 * 1024
 MAX_GRAPH_FILES = 20_000
 MARKDOWN_SUFFIXES = {".md", ".markdown"}
-BOOTSTRAP_SCRIPT_HASH = "sha256-EgrABKhugppsy9VpJJvZTc6cSKAAbCuKGfrWitizdio="
 
 
 def content_mentions_asset(content: str, path: str, decoded_content: str | None = None) -> bool:
@@ -95,6 +94,7 @@ STATIC_FILES = {
     "/index.html",
     "/styles.css",
     "/theme-config.css",
+    "/appearance-bootstrap.js",
     "/graph.js",
     "/app.js",
     "/sw.js",
@@ -504,7 +504,7 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
-        self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self' '{BOOTSTRAP_SCRIPT_HASH}'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https: http:; media-src 'self' blob: https: http:; frame-src https://youtu.be https://youtube.com https://*.youtube.com https://youtube-nocookie.com https://*.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https: http:; media-src 'self' blob: https: http:; frame-src https://youtu.be https://youtube.com https://*.youtube.com https://youtube-nocookie.com https://*.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
         super().end_headers()
 
     def valid_write_origin(self) -> bool:
