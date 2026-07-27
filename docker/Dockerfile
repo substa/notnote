@@ -9,6 +9,7 @@ WORKDIR /app
 COPY server.py index.html app.js graph.js styles.css theme-config.css sw.js ./
 COPY manifest.webmanifest ./
 COPY docs/ ./docs/
+COPY settings/ ./settings/
 COPY assets/icons/ ./assets/icons/
 
 EXPOSE 4176

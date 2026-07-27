@@ -695,12 +695,14 @@ svg {
 .findbar button:disabled {
   opacity: 0.35;
 }
-::highlight(document-search) {
+::highlight(document-search),
+::highlight(documentation-search) {
   color: inherit;
   background-color: rgb(245 198 66 / 35%);
   background-color: color-mix(in srgb, var(--accent) 28%, transparent);
 }
-::highlight(document-search-current) {
+::highlight(document-search-current),
+::highlight(documentation-search-current) {
   color: inherit;
   background-color: rgb(245 168 35 / 65%);
   background-color: color-mix(in srgb, var(--accent) 58%, transparent);
@@ -3579,6 +3581,49 @@ body.image-lightbox-open {
   max-height: calc(100vh - 130px);
   padding: 12px 0;
   overflow: auto;
+}
+.documentation-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px 28px;
+  gap: 5px;
+  margin: 0 0 9px;
+  padding: 0 5px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.documentation-search input {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--chrome);
+  color: var(--text);
+  font: 12px var(--ui);
+}
+.documentation-search span {
+  align-self: center;
+  padding-left: 4px;
+  color: var(--muted);
+  font: 10px var(--ui);
+}
+.documentation-menu .documentation-search button {
+  display: grid;
+  width: 28px;
+  height: 25px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--chrome);
+  color: var(--muted);
+}
+.documentation-menu .documentation-search button:hover,
+.documentation-menu .documentation-search button:focus-visible {
+  color: var(--accent);
+}
+.documentation-menu .documentation-search button:disabled {
+  opacity: 0.35;
 }
 .documentation-menu strong {
   padding: 0 9px;

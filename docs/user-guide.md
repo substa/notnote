@@ -122,9 +122,10 @@ Press `⌘/Ctrl + F` and start typing to highlight every occurrence in the curre
 
 Open the page menu from the gear icon at the right side of the footer. It provides **New page**, **Delete page** when the current page can be deleted, **Page history**, **Settings**, **Shortcuts**, and **Documentation**. You can also open Settings directly with `⌘/Ctrl + ,`.
 
-- **General** controls the light, dark, or system theme, the accent color, and Vim mode.
-- **Shortcuts** lists keyboard commands by section. Search the list, select a shortcut, and press a new key combination to replace it. Use **Reset** to restore its default.
-- **Documentation** contains this complete guide. Its **On this page** menu jumps directly to every main section; on mobile it appears as a section selector.
+- **General**, available at `/settings`, controls the light, dark, or system theme, the accent color, and Vim mode.
+- **Shortcuts**, available at `/settings/shortcuts`, lists keyboard commands by section. Search the list, select a shortcut, and press a new key combination to replace it. Use **Reset** to restore its default.
+- **Git**, available at `/settings/git` when using a remote graph, controls automatic snapshots and manual synchronization.
+- **Documentation** contains this complete guide and is directly reachable at `/docs`. Search highlights every matching occurrence and provides previous/next navigation with `Enter` and `Shift + Enter`; `⌘/Ctrl + F` focuses the documentation search. Its **On this page** menu jumps directly to every main section; on mobile it appears as a section selector.
 
 When a graph is open, these preferences and custom shortcuts are saved in `.notnote/settings.json` and follow the graph across devices.
 

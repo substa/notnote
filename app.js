@@ -7,6 +7,33 @@
     ...root.querySelectorAll(selector),
   ];
   const app = $("#app");
+  const settingsTabFromPath = (path = location.pathname) => {
+    if (/^\/docs\/?$/.test(path)) return "documentation";
+    const match = path.match(/^\/settings(?:\/(general|shortcuts|git))?\/?$/);
+    return match ? match[1] || "general" : null;
+  };
+  const settingsPaths = {
+    general: "/settings",
+    shortcuts: "/settings/shortcuts",
+    git: "/settings/git",
+    documentation: "/docs",
+  };
+  const initialUrlParameters = new URLSearchParams(location.search);
+  const querySettingsTab =
+    initialUrlParameters.get("documentation") === "1"
+      ? "documentation"
+      : initialUrlParameters.get("settings");
+  const initialSettingsTab =
+    settingsTabFromPath() ||
+    (["general", "shortcuts", "git", "documentation"].includes(
+      querySettingsTab,
+    )
+      ? querySettingsTab
+      : null);
+  initialUrlParameters.delete("documentation");
+  initialUrlParameters.delete("settings");
+  const settingsRouteUrl = (tab) =>
+    `${settingsPaths[tab] || settingsPaths.general}${initialUrlParameters.size ? `?${initialUrlParameters}` : ""}`;
   const editor = $("#editor");
   const sourceEditor = $("#sourceEditor");
   const notnoteWrap = $("#notnoteWrap");
@@ -6540,7 +6567,91 @@ Open, save, export, and reach recent documents or headings from the command pale
 
   let documentationLoaded = false;
   let documentationReturnFocus = null;
+  let settingsRoutePushed = false;
+  let documentationMatches = [];
+  let currentDocumentationMatch = -1;
   let gitSettingsTimer = null;
+
+  function clearDocumentationHighlights() {
+    if (globalThis.CSS?.highlights) {
+      CSS.highlights.delete("documentation-search");
+      CSS.highlights.delete("documentation-search-current");
+    }
+  }
+
+  function paintDocumentationHighlights() {
+    clearDocumentationHighlights();
+    if (!globalThis.CSS?.highlights || !globalThis.Highlight) return;
+    const all = new Highlight();
+    for (const match of documentationMatches) all.add(match.range);
+    CSS.highlights.set("documentation-search", all);
+    const current = documentationMatches[currentDocumentationMatch];
+    if (current)
+      CSS.highlights.set(
+        "documentation-search-current",
+        new Highlight(current.range),
+      );
+  }
+
+  function updateDocumentationSearch(scroll = true) {
+    documentationMatches = [];
+    currentDocumentationMatch = -1;
+    clearDocumentationHighlights();
+    const input = $("#documentationSearch");
+    const query = input?.value.trim().toLocaleLowerCase() || "";
+    if (query) searchDom(documentationContent, query, documentationMatches);
+    if (documentationMatches.length) currentDocumentationMatch = 0;
+    paintDocumentationHighlights();
+    const count = $("#documentationSearchCount");
+    if (count)
+      count.textContent = documentationMatches.length
+        ? `${currentDocumentationMatch + 1}/${documentationMatches.length}`
+        : query
+          ? "0/0"
+          : "";
+    $$('[data-documentation-search-move]', $("#documentationMenu")).forEach(
+      (button) => (button.disabled = !documentationMatches.length),
+    );
+    if (scroll && documentationMatches.length)
+      moveDocumentationSearch(0, false);
+  }
+
+  function moveDocumentationSearch(direction = 1, repaint = true) {
+    if (!documentationMatches.length) return;
+    currentDocumentationMatch =
+      (currentDocumentationMatch + direction + documentationMatches.length) %
+      documentationMatches.length;
+    if (repaint) {
+      paintDocumentationHighlights();
+      const count = $("#documentationSearchCount");
+      if (count)
+        count.textContent = `${currentDocumentationMatch + 1}/${documentationMatches.length}`;
+    }
+    const range = documentationMatches[currentDocumentationMatch].range;
+    const element =
+      range.startContainer.nodeType === Node.ELEMENT_NODE
+        ? range.startContainer
+        : range.startContainer.parentElement;
+    element?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+  }
+
+  function resetDocumentationSearch() {
+    const input = $("#documentationSearch");
+    if (input) input.value = "";
+    documentationMatches = [];
+    currentDocumentationMatch = -1;
+    clearDocumentationHighlights();
+    const count = $("#documentationSearchCount");
+    if (count) count.textContent = "";
+    $$('[data-documentation-search-move]', $("#documentationMenu")).forEach(
+      (button) => (button.disabled = true),
+    );
+  }
+
   async function loadDocumentation() {
     if (documentationLoaded) return;
     documentationContent.innerHTML = "<p>Loading documentation…</p>";
@@ -6572,9 +6683,7 @@ Open, save, export, and reach recent documents or headings from the command pale
         },
       );
       const sections = $$("h2", documentationContent);
-      $("#documentationMenu").innerHTML = sections.length
-        ? `<strong>On this page</strong><select aria-label="Jump to documentation section"><option value="">Choose a section…</option>${sections.map((heading) => `<option value="${heading.id}">${escapeHtml(heading.textContent)}</option>`).join("")}</select><div>${sections.map((heading) => `<button type="button" data-documentation-target="${heading.id}">${escapeHtml(heading.textContent)}</button>`).join("")}</div>`
-        : "";
+      $("#documentationMenu").innerHTML = `<form class="documentation-search" role="search"><input id="documentationSearch" type="search" placeholder="Search documentation…" aria-label="Search documentation"><span id="documentationSearchCount" aria-live="polite"></span><button type="button" data-documentation-search-move="-1" aria-label="Previous result" title="Previous result" disabled>↑</button><button type="button" data-documentation-search-move="1" aria-label="Next result" title="Next result" disabled>↓</button></form>${sections.length ? `<strong>On this page</strong><select aria-label="Jump to documentation section"><option value="">Choose a section…</option>${sections.map((heading) => `<option value="${heading.id}">${escapeHtml(heading.textContent)}</option>`).join("")}</select><div>${sections.map((heading) => `<button type="button" data-documentation-target="${heading.id}">${escapeHtml(heading.textContent)}</button>`).join("")}</div>` : ""}`;
       documentationLoaded = true;
     } catch (error) {
       documentationContent.innerHTML = `<p>${escapeHtml(error.message || "Could not load the documentation.")}</p>`;
@@ -6686,14 +6795,25 @@ Open, save, export, and reach recent documents or headings from the command pale
     gitSettingsTimer = setTimeout(loadGitSettingsStatus, 2000);
   }
 
-  async function showSettings(tab = "general") {
-    if (documentationView.hidden)
+  async function showSettings(tab = "general", options = {}) {
+    const opening = documentationView.hidden;
+    if (opening)
       documentationReturnFocus =
         activeMarkdownField() || document.activeElement;
     documentationView.hidden = false;
     app.classList.add("documentation-open");
     $("#settingsGitTab").hidden = !graphStore?.isRemote;
     if (tab === "git" && !graphStore?.isRemote) tab = "general";
+    if (!options.routeNavigation) {
+      const route = settingsRouteUrl(tab);
+      if (`${location.pathname}${location.search}` !== route) {
+        if (opening && !settingsTabFromPath()) {
+          settingsRoutePushed = true;
+          history.pushState({ notnoteSettings: tab }, "", route);
+        } else
+          history.replaceState({ notnoteSettings: tab }, "", route);
+      }
+    }
     $$("[data-settings-tab]").forEach((button) =>
       button.classList.toggle("active", button.dataset.settingsTab === tab),
     );
@@ -6713,17 +6833,35 @@ Open, save, export, and reach recent documents or headings from the command pale
     requestAnimationFrame(() =>
       (tab === "shortcuts"
         ? $("#shortcutSearch")
-        : $("#settingsClose")
-      ).focus(),
+        : tab === "documentation"
+          ? $("#documentationSearch")
+          : $("#settingsClose")
+      )?.focus(),
     );
   }
-  const showDocumentation = () => showSettings("documentation");
+  const showDocumentation = (options) =>
+    showSettings("documentation", options);
 
-  function closeDocumentation() {
+  function workspaceRouteUrl() {
+    const query = initialUrlParameters.size ? `?${initialUrlParameters}` : "";
+    return state.graphMode && state.graphPage
+      ? `${graphRoutePath(state.graphPage)}${query}`
+      : `/${query}`;
+  }
+
+  function closeDocumentation(options = {}) {
     if (documentationView.hidden) return;
     clearTimeout(gitSettingsTimer);
+    resetDocumentationSearch();
     documentationView.hidden = true;
     app.classList.remove("documentation-open");
+    if (options.routeNavigation) settingsRoutePushed = false;
+    else if (settingsTabFromPath()) {
+      if (settingsRoutePushed) {
+        settingsRoutePushed = false;
+        history.back();
+      } else history.replaceState({}, "", workspaceRouteUrl());
+    }
     if (
       documentationReturnFocus?.isConnected &&
       !documentationReturnFocus.closest?.("[hidden]")
@@ -8286,12 +8424,33 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (tab) showSettings(tab);
   });
   $("#documentationMenu").addEventListener("click", (event) => {
+    const move = event.target.closest("[data-documentation-search-move]")
+      ?.dataset.documentationSearchMove;
+    if (move) {
+      moveDocumentationSearch(Number(move));
+      return;
+    }
     const target = event.target.closest("[data-documentation-target]")?.dataset
       .documentationTarget;
     if (target)
       document
         .getElementById(target)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  $("#documentationMenu").addEventListener("input", (event) => {
+    if (event.target.matches("#documentationSearch"))
+      updateDocumentationSearch();
+  });
+  $("#documentationMenu").addEventListener("keydown", (event) => {
+    if (!event.target.matches("#documentationSearch")) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      moveDocumentationSearch(event.shiftKey ? -1 : 1);
+    } else if (event.key === "Escape" && event.target.value) {
+      event.preventDefault();
+      event.stopPropagation();
+      resetDocumentationSearch();
+    }
   });
   $("#documentationMenu").addEventListener("change", (event) => {
     if (event.target.matches("select") && event.target.value)
@@ -9502,9 +9661,31 @@ Open, save, export, and reach recent documents or headings from the command pale
 
   document.addEventListener("keydown", (event) => {
     if (!documentationView.hidden) {
-      if (event.key === "Escape") {
+      const documentationPanel = $(
+        '[data-settings-panel="documentation"]',
+      );
+      if (!documentationPanel.hidden && shortcutMatches("find", event)) {
         event.preventDefault();
-        closeDocumentation();
+        $("#documentationSearch")?.focus();
+        $("#documentationSearch")?.select();
+      } else if (
+        !documentationPanel.hidden &&
+        shortcutMatches("findNext", event)
+      ) {
+        event.preventDefault();
+        moveDocumentationSearch(1);
+      } else if (
+        !documentationPanel.hidden &&
+        shortcutMatches("findPrevious", event)
+      ) {
+        event.preventDefault();
+        moveDocumentationSearch(-1);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        if (!documentationPanel.hidden && $("#documentationSearch")?.value) {
+          resetDocumentationSearch();
+          $("#documentationSearch").focus();
+        } else closeDocumentation();
       }
       return;
     }
@@ -9754,6 +9935,13 @@ Open, save, export, and reach recent documents or headings from the command pale
     else checkExternalGraphPage();
   });
   window.addEventListener("popstate", async () => {
+    const settingsTab = settingsTabFromPath();
+    if (settingsTab) {
+      await showSettings(settingsTab, { routeNavigation: true });
+      return;
+    }
+    if (!documentationView.hidden)
+      closeDocumentation({ routeNavigation: true });
     const route = graphRoute();
     if (!route) {
       if (!state.graphMode) return;
@@ -9901,7 +10089,17 @@ Open, save, export, and reach recent documents or headings from the command pale
     } catch {}
     if (!state.dirty)
       loadInitialDocument({ preserveGraphRoute: Boolean(graphRoute()) });
-  })().finally(() => app.classList.remove("initial-loading"));
+  })().finally(async () => {
+    if (initialSettingsTab) {
+      const tab =
+        initialSettingsTab === "git" && !graphStore?.isRemote
+          ? "general"
+          : initialSettingsTab;
+      history.replaceState({ notnoteSettings: tab }, "", settingsRouteUrl(tab));
+      await showSettings(tab, { routeNavigation: true });
+    }
+    app.classList.remove("initial-loading");
+  });
 
   if ("launchQueue" in window) {
     window.launchQueue.setConsumer(async (launchParams) => {

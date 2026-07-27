@@ -29,6 +29,30 @@ class StartupSecurityTests(unittest.TestCase):
         self.assertEqual(BOOTSTRAP_SCRIPT_HASH, f"sha256-{digest}")
 
 
+class StaticRouteTests(unittest.TestCase):
+    def test_settings_routes_serve_the_application_shell(self):
+        handler = object.__new__(NotnoteHandler)
+        for route in (
+            "/docs",
+            "/docs/",
+            "/settings",
+            "/settings/",
+            "/settings/general",
+            "/settings/shortcuts",
+            "/settings/git",
+        ):
+            with self.subTest(route=route):
+                handler.path = route
+                served = []
+                with patch(
+                    "server.SimpleHTTPRequestHandler.send_head",
+                    side_effect=lambda: served.append(handler.path) or "response",
+                ):
+                    self.assertEqual(handler.send_head(), "response")
+                self.assertEqual(served, ["/index.html"])
+                self.assertEqual(handler.path, route)
+
+
 class GraphAssetPathTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

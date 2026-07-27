@@ -99,8 +99,12 @@ STATIC_FILES = {
     "/app.js",
     "/sw.js",
     "/manifest.webmanifest",
+    "/docs/index.html",
     "/docs/user-guide.md",
     "/docs/deployment.md",
+    "/settings/index.html",
+    "/settings/shortcuts/index.html",
+    "/settings/git/index.html",
     "/assets/icons/notnote.svg",
     "/assets/icons/favicon.ico",
     "/assets/icons/favicon-16x16.png",
@@ -489,7 +493,9 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
         route = urlparse(self.path).path
         if route.startswith("/api/") or route.startswith("/assets/"):
             self.send_header("Cache-Control", "no-store")
-        elif route in {"/", "/index.html", "/sw.js"}:
+        elif route in {"/", "/index.html", "/sw.js"} or re.match(
+            r"^/(?:docs/?|settings(?:/(?:general|shortcuts|git))?/?)$", route
+        ):
             self.send_header("Cache-Control", "no-cache")
         else:
             self.send_header("Cache-Control", "public, max-age=3600")
@@ -517,7 +523,9 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
         """Serve only public application files and the SPA shell."""
         original_path = self.path
         route = urlparse(original_path).path
-        if re.match(r"^/(?:pages|journals)/[^/].*", route):
+        if re.match(
+            r"^/(?:docs/?|settings(?:/(?:general|shortcuts|git))?/?)$", route
+        ) or re.match(r"^/(?:pages|journals)/[^/].*", route):
             route = "/index.html"
         if route not in STATIC_FILES:
             self.send_error(HTTPStatus.NOT_FOUND)
