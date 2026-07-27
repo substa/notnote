@@ -8,6 +8,7 @@
     />
     <meta name="theme-color" content="#fdfcfb" />
     <script>(()=>{"use strict";let e={};try{const t=t=>JSON.parse(localStorage.getItem(t))||{};e={...t("notnote-markdown-settings-v1"),...t("notnote-bootstrap-appearance-v1")}}catch{}const t=["light","dark","system"].includes(e.theme)?e.theme:"system",o=t==="dark"||t==="system"&&matchMedia("(prefers-color-scheme: dark)").matches,n=document.documentElement;n.classList.toggle("theme-dark",o);n.classList.toggle("theme-system",t==="system");n.style.colorScheme=o?"dark":"light";/^#[0-9a-f]{6}$/i.test(e.accentColor||"")&&n.style.setProperty("--accent",e.accentColor);document.querySelector("meta[name=theme-color]")?.setAttribute("content",o?"#282725":"#fdfcfb")})();</script>
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta
