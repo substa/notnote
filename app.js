@@ -6992,6 +6992,33 @@ Open, save, export, and reach recent documents or headings from the command pale
     return id ? graphBlockLocation(id)?.block : null;
   }
 
+  async function writeTextToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch {
+        // Older iOS versions expose the API but reject writes in some contexts.
+      }
+    }
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.readOnly = true;
+    field.style.position = "fixed";
+    field.style.left = "-9999px";
+    field.style.opacity = "0";
+    document.body.append(field);
+    field.select();
+    field.setSelectionRange(0, field.value.length);
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } finally {
+      field.remove();
+    }
+    if (!copied) throw new Error("Clipboard access is not available");
+  }
+
   async function persistContextDocument(context) {
     if (!context || context.page.path === state.graphPage?.path) {
       graphChanged();
@@ -7016,9 +7043,9 @@ Open, save, export, and reach recent documents or headings from the command pale
     if (!properties.id) {
       block.content = `${block.content.replace(/\s+$/, "")}\n${block.content ? "" : ""}id:: ${uuid}`;
       block.uuid = uuid;
-      await persistContextDocument(context);
-    }
-    await navigator.clipboard.writeText(`((${uuid}))`);
+      const clipboardWrite = writeTextToClipboard(`((${uuid}))`);
+      await Promise.all([clipboardWrite, persistContextDocument(context)]);
+    } else await writeTextToClipboard(`((${uuid}))`);
     toast("Block reference copied");
   }
 
@@ -7029,7 +7056,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       blocks: [block],
       trailingNewline: true,
     });
-    await navigator.clipboard.writeText(markdown);
+    await writeTextToClipboard(markdown);
     toast("Block copied");
   }
 
@@ -7809,14 +7836,37 @@ Open, save, export, and reach recent documents or headings from the command pale
     }, 250),
   );
   let mobileRecordPointer = null;
+  let mobileMorePointer = null;
   let suppressMobileRecordClickUntil = 0;
+  let suppressMobileMoreClickUntil = 0;
+  const openMobileBlockMenu = (event, trigger) => {
+    const block = activeGraphBlock?.block;
+    const page = activeGraphBlock?.page || state.graphPage;
+    const document =
+      page?.path === state.graphPage?.path
+        ? state.graphDocument
+        : journalDocuments.get(page?.path) ||
+          graphIndex?.documents.get(page?.path);
+    if (block && page && document)
+      openBlockContextMenu(
+        { block, page, document },
+        event,
+        trigger,
+        false,
+      );
+  };
   mobileBlockToolbar.addEventListener("pointerdown", (event) => {
     event.preventDefault();
-    if (
-      event.pointerType === "touch" &&
-      event.target.closest('[data-block-action="record"]') &&
-      activeGraphBlock
-    )
+    if (event.pointerType !== "touch" || !activeGraphBlock) return;
+    const action = event.target.closest("[data-block-action]")?.dataset
+      .blockAction;
+    if (action === "more")
+      mobileMorePointer = {
+        id: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+      };
+    else if (action === "record")
       mobileRecordPointer = {
         id: event.pointerId,
         x: event.clientX,
@@ -7828,6 +7878,24 @@ Open, save, export, and reach recent documents or headings from the command pale
       };
   });
   mobileBlockToolbar.addEventListener("pointerup", (event) => {
+    const moreTarget = mobileMorePointer;
+    mobileMorePointer = null;
+    if (
+      moreTarget?.id === event.pointerId &&
+      Math.hypot(
+        event.clientX - moreTarget.x,
+        event.clientY - moreTarget.y,
+      ) <= 12 &&
+      event.target.closest('[data-block-action="more"]')
+    ) {
+      event.preventDefault();
+      suppressMobileMoreClickUntil = Date.now() + 750;
+      openMobileBlockMenu(
+        event,
+        event.target.closest('[data-block-action="more"]'),
+      );
+      return;
+    }
     const target = mobileRecordPointer;
     mobileRecordPointer = null;
     if (
@@ -7850,6 +7918,7 @@ Open, save, export, and reach recent documents or headings from the command pale
   });
   mobileBlockToolbar.addEventListener("pointercancel", () => {
     mobileRecordPointer = null;
+    mobileMorePointer = null;
   });
   mobileBlockToolbar.addEventListener("click", (event) => {
     const button = event.target.closest("[data-block-action]");
@@ -7857,6 +7926,11 @@ Open, save, export, and reach recent documents or headings from the command pale
     const block = activeGraphBlock?.block;
     if (!button || !field || !block) return;
     const action = button.dataset.blockAction;
+    if (action === "more") {
+      if (Date.now() >= suppressMobileMoreClickUntil)
+        openMobileBlockMenu(event, button);
+      return;
+    }
     if (action === "undo" || action === "redo") {
       applyAppHistory(action === "redo");
       return;
@@ -9047,7 +9121,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     blockContextTarget = null;
   }
 
-  function openBlockContextMenu(context, event, trigger) {
+  function openBlockContextMenu(context, event, trigger, focusMenu = true) {
     closeBlockContextMenu();
     blockContextTarget = context;
     $$('[data-block-context-shortcut]', blockContextMenu).forEach((label) => {
@@ -9058,17 +9132,23 @@ Open, save, export, and reach recent documents or headings from the command pale
     blockContextMenu.hidden = false;
     const triggerBounds = trigger.getBoundingClientRect();
     const menuBounds = blockContextMenu.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport?.offsetLeft || 0;
+    const viewportTop = viewport?.offsetTop || 0;
+    const viewportRight = viewportLeft + (viewport?.width || window.innerWidth);
+    const viewportBottom =
+      viewportTop + (viewport?.height || window.innerHeight);
     const x = event.clientX || triggerBounds.right;
     const y = event.clientY || triggerBounds.bottom;
     blockContextMenu.style.left =
-      `${Math.max(8, Math.min(x, window.innerWidth - menuBounds.width - 8))}px`;
+      `${Math.max(viewportLeft + 8, Math.min(x, viewportRight - menuBounds.width - 8))}px`;
     blockContextMenu.style.top =
-      `${Math.max(8, Math.min(y, window.innerHeight - menuBounds.height - 8))}px`;
-    blockContextMenu.querySelector("button")?.focus({ preventScroll: true });
+      `${Math.max(viewportTop + 8, Math.min(y, viewportBottom - menuBounds.height - 8))}px`;
+    if (focusMenu)
+      blockContextMenu.querySelector("button")?.focus({ preventScroll: true });
   }
 
-  outliner.addEventListener("contextmenu", (event) => {
-    const bullet = event.target.closest("[data-block-bullet]");
+  const blockContextForBullet = (bullet) => {
     const node = bullet?.closest(".block-node");
     const page = graphStore?.pages.find(
       (item) => item.path === node?.dataset.pagePath,
@@ -9082,9 +9162,85 @@ Open, save, export, and reach recent documents or headings from the command pale
       bullet?.dataset.blockBullet,
       document?.blocks,
     )?.block;
-    if (bullet && page && document && block) {
+    return bullet && page && document && block
+      ? { block, page, document }
+      : null;
+  };
+
+  let blockMenuLongPressTimer = null;
+  let blockMenuLongPress = null;
+  const cancelBlockMenuLongPress = () => {
+    clearTimeout(blockMenuLongPressTimer);
+    blockMenuLongPressTimer = null;
+    blockMenuLongPress = null;
+  };
+  const finishBlockMenuLongPress = (event) => {
+    if (
+      blockMenuLongPress?.triggered &&
+      blockMenuLongPress.pointerId === event.pointerId
+    ) {
       event.preventDefault();
-      openBlockContextMenu({ block, page, document }, event, bullet);
+      suppressBlockClickUntil = Date.now() + 800;
+    }
+    cancelBlockMenuLongPress();
+  };
+  outliner.addEventListener("pointerdown", (event) => {
+    const bullet = event.target.closest("[data-block-bullet]");
+    if (!bullet || event.pointerType !== "touch" || event.button !== 0) return;
+    cancelBlockMenuLongPress();
+    blockMenuLongPress = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    };
+    blockMenuLongPressTimer = setTimeout(() => {
+      const press = blockMenuLongPress;
+      const context = blockContextForBullet(bullet);
+      clearTimeout(blockMenuLongPressTimer);
+      blockMenuLongPressTimer = null;
+      if (!press || !context || !bullet.isConnected) {
+        cancelBlockMenuLongPress();
+        return;
+      }
+      press.triggered = true;
+      suppressBlockClickUntil = Number.POSITIVE_INFINITY;
+      getSelection()?.removeAllRanges();
+      navigator.vibrate?.(20);
+      openBlockContextMenu(
+        context,
+        { clientX: press.x, clientY: press.y },
+        bullet,
+        false,
+      );
+    }, 550);
+  });
+  outliner.addEventListener("pointermove", (event) => {
+    if (
+      blockMenuLongPress?.pointerId === event.pointerId &&
+      !blockMenuLongPress.triggered &&
+      Math.hypot(
+        event.clientX - blockMenuLongPress.x,
+        event.clientY - blockMenuLongPress.y,
+      ) > 10
+    )
+      cancelBlockMenuLongPress();
+  });
+  outliner.addEventListener("pointerup", finishBlockMenuLongPress);
+  outliner.addEventListener("pointercancel", finishBlockMenuLongPress);
+
+  outliner.addEventListener("contextmenu", (event) => {
+    const bullet = event.target.closest("[data-block-bullet]");
+    const context = blockContextForBullet(bullet);
+    if (context) {
+      event.preventDefault();
+      if (!blockMenuLongPress?.triggered) cancelBlockMenuLongPress();
+      openBlockContextMenu(
+        context,
+        event,
+        bullet,
+        !blockMenuLongPress?.triggered &&
+          !event.sourceCapabilities?.firesTouchEvents,
+      );
       return;
     }
     closeBlockContextMenu();
@@ -9117,10 +9273,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       await deleteGraphBlock(context.block, context);
   }
 
-  blockContextMenu.addEventListener("click", async (event) => {
-    const action = event.target.closest("[data-block-context-action]")?.dataset
-      .blockContextAction;
-    const context = blockContextTarget;
+  const activateBlockContextMenuAction = async (action, context) => {
     if (!action || !context?.block) return;
     closeBlockContextMenu();
     try {
@@ -9128,6 +9281,44 @@ Open, save, export, and reach recent documents or headings from the command pale
     } catch (error) {
       toast(error.message || "Could not complete the block action");
     }
+  };
+  let blockContextActionPointer = null;
+  let suppressBlockContextActionClickUntil = 0;
+  blockContextMenu.addEventListener("pointerdown", (event) => {
+    const button = event.target.closest("[data-block-context-action]");
+    if (!button || event.pointerType !== "touch") return;
+    event.preventDefault();
+    blockContextActionPointer = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      action: button.dataset.blockContextAction,
+      context: blockContextTarget,
+    };
+  });
+  blockContextMenu.addEventListener("pointerup", (event) => {
+    const target = blockContextActionPointer;
+    blockContextActionPointer = null;
+    if (
+      !target ||
+      target.id !== event.pointerId ||
+      Math.hypot(event.clientX - target.x, event.clientY - target.y) > 12 ||
+      event.target.closest("[data-block-context-action]")?.dataset
+        .blockContextAction !== target.action
+    )
+      return;
+    event.preventDefault();
+    suppressBlockContextActionClickUntil = Date.now() + 750;
+    activateBlockContextMenuAction(target.action, target.context);
+  });
+  blockContextMenu.addEventListener("pointercancel", () => {
+    blockContextActionPointer = null;
+  });
+  blockContextMenu.addEventListener("click", (event) => {
+    if (Date.now() < suppressBlockContextActionClickUntil) return;
+    const action = event.target.closest("[data-block-context-action]")?.dataset
+      .blockContextAction;
+    activateBlockContextMenuAction(action, blockContextTarget);
   });
   blockContextMenu.addEventListener("keydown", (event) => {
     const items = $$('[role="menuitem"]', blockContextMenu);

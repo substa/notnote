@@ -1732,6 +1732,9 @@ body.image-lightbox-open {
   border: 0;
   background: transparent;
   color: var(--muted);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .block-bullet:before {
   content: "";

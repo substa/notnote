@@ -216,7 +216,7 @@ Each bullet is a block. Nested blocks are stored through Markdown indentation.
 | Collapse or expand children | Arrow beside the bullet |
 | Collapse or expand every nested block on the page | `⌘/Ctrl + Shift + L` |
 | Zoom into a block | Click the bullet |
-| Open block actions | Right-click the bullet |
+| Open block actions | Right-click the bullet, or press and hold it on touch devices |
 | Copy block reference | `⌘/Ctrl + Alt + R` |
 | Copy block and children | `⌘/Ctrl + Alt + C` |
 | Make block a template | `⌘/Ctrl + Alt + T` |
@@ -224,7 +224,7 @@ Each bullet is a block. Nested blocks are stored through Markdown indentation.
 
 To select blocks for a bulk action, use `⌘/Ctrl + click`; `Shift + click` extends the selection across the visible range. Selected blocks are highlighted and can be deleted together with `Backspace`. Deleting a parent block also deletes its nested blocks.
 
-Right-click a bullet to open its block menu. **Copy block ref** adds an `id::` property when necessary and copies the `((UUID))` reference. **Copy block** copies the block and its complete nested structure as Markdown. Pasting that Markdown into an empty graph block recreates the individual blocks and their nesting with fresh IDs; pasting while editing a non-empty block inserts the copied roots after it. **Make a template** asks for a name and adds a clean copy of the block tree to `pages/templates.md`; persistent IDs and completion timestamps are omitted. **Delete block** asks for confirmation, then removes the block and all its children. The four menu shortcuts are shown beside their actions and can be customized from **Settings → Shortcuts**.
+Right-click a bullet to open its block menu, or press and hold it for about half a second on a touch device. Moving the finger cancels the hold so scrolling and swipe gestures continue to work normally. On mobile, the **More block actions** (`⋯`) button at the end of the editing toolbar provides direct access to the same menu. **Copy block ref** adds an `id::` property when necessary and copies the `((UUID))` reference. **Copy block** copies the block and its complete nested structure as Markdown. Pasting that Markdown into an empty graph block recreates the individual blocks and their nesting with fresh IDs; pasting while editing a non-empty block inserts the copied roots after it. **Make a template** asks for a name and adds a clean copy of the block tree to `pages/templates.md`; persistent IDs and completion timestamps are omitted. **Delete block** asks for confirmation, then removes the block and all its children. The four menu shortcuts are shown beside their actions and can be customized from **Settings → Shortcuts**.
 
 ## Tasks
 
