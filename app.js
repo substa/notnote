@@ -3850,7 +3850,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     focusGraphBlock(block.id, 0);
   }
 
-  function createNextGraphBlock(block, content = "") {
+  function createNextGraphBlock(block, content = "", asFirstChild = false) {
     const location = graphBlockLocation(block.id);
     if (!location) return null;
     const next = {
@@ -3861,7 +3861,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       children: [],
       collapsed: false,
     };
-    if (state.graphZoomId === block.id) {
+    if (asFirstChild || state.graphZoomId === block.id) {
       block.collapsed = false;
       block.children.unshift(next);
       saveGraphCollapse();
@@ -3960,12 +3960,18 @@ Open, save, export, and reach recent documents or headings from the command pale
     end = field.selectionEnd,
   ) {
     if (caretInsideFence(field.value, start)) return false;
-    if (start === 0 && end === 0) {
+    const createFirstChild =
+      start === end && end === field.value.length && block.children.length > 0;
+    if (start === 0 && end === 0 && !createFirstChild) {
       createPreviousGraphBlock(block);
       return true;
     }
     block.content = field.value.slice(0, start);
-    createNextGraphBlock(block, field.value.slice(end));
+    createNextGraphBlock(
+      block,
+      field.value.slice(end),
+      createFirstChild,
+    );
     return true;
   }
 
