@@ -2692,10 +2692,37 @@ body.image-lightbox-open {
   max-height: 220px;
   overflow: auto;
   padding: 5px;
+  scrollbar-width: none;
   border: 1px solid var(--border);
   border-radius: 7px;
-  background: var(--bg);
+  background:
+    linear-gradient(var(--bg) 35%, transparent) center top,
+    linear-gradient(transparent, var(--bg) 65%) center bottom,
+    radial-gradient(
+        farthest-side at 50% 0,
+        color-mix(in srgb, var(--text) 20%, transparent),
+        transparent
+      )
+      center top,
+    radial-gradient(
+        farthest-side at 50% 100%,
+        color-mix(in srgb, var(--text) 20%, transparent),
+        transparent
+      )
+      center bottom,
+    linear-gradient(var(--bg), var(--bg));
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll, scroll;
+  background-size:
+    100% 24px,
+    100% 24px,
+    100% 10px,
+    100% 10px,
+    100% 100%;
   box-shadow: 0 12px 35px #0003;
+}
+.graph-autocomplete::-webkit-scrollbar {
+  display: none;
 }
 .graph-autocomplete button {
   display: block;

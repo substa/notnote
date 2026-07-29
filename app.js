@@ -4052,7 +4052,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       ["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)
     ) {
       event.preventDefault();
-      handleGraphAutocompleteKey(event.key);
+      handleGraphAutocompleteKey(event.key, event.shiftKey);
       return;
     }
     if (shortcutMatches("blockIndent", event)) {
@@ -4308,6 +4308,7 @@ Open, save, export, and reach recent documents or headings from the command pale
           `<button type="button" data-autocomplete-index="${index}" class="${index === 0 ? "selected" : ""}">${item.create ? `<span class="autocomplete-create">Create page</span>` : item.template ? `<span class="autocomplete-create">Template</span>` : item.slash || item.angleCommand ? `<span class="autocomplete-create">Command</span>` : item.blockAutocomplete ? `<span class="autocomplete-create">Block · ${escapeHtml(item.page.title)}</span>` : ""}${escapeHtml(item.title)}</button>`,
       )
       .join("");
+    graphAutocomplete.scrollTop = 0;
     graphAutocomplete.hidden = false;
     const rect = field.getBoundingClientRect();
     const viewport = window.visualViewport;
@@ -4342,9 +4343,25 @@ Open, save, export, and reach recent documents or headings from the command pale
     autocompleteItems = [];
   }
   function renderAutocompleteSelection() {
-    $$("[data-autocomplete-index]", graphAutocomplete).forEach((item, index) =>
-      item.classList.toggle("selected", index === autocompleteIndex),
+    let selected = null;
+    $$("[data-autocomplete-index]", graphAutocomplete).forEach(
+      (item, index) => {
+        const active = index === autocompleteIndex;
+        item.classList.toggle("selected", active);
+        if (active) selected = item;
+      },
     );
+    if (!selected) return;
+    const itemTop = selected.offsetTop;
+    const itemBottom = itemTop + selected.offsetHeight;
+    const viewTop = graphAutocomplete.scrollTop;
+    const viewBottom = viewTop + graphAutocomplete.clientHeight;
+    const padding = 5;
+    if (itemTop < viewTop + padding)
+      graphAutocomplete.scrollTop = Math.max(0, itemTop - padding);
+    else if (itemBottom > viewBottom - padding)
+      graphAutocomplete.scrollTop =
+        itemBottom - graphAutocomplete.clientHeight + padding;
   }
   function chooseGraphAutocomplete(index = autocompleteIndex) {
     const item = autocompleteItems[index];
@@ -4534,14 +4551,12 @@ Open, save, export, and reach recent documents or headings from the command pale
         })
         .catch((error) => toast(error.message || "Could not create the page"));
   }
-  function handleGraphAutocompleteKey(key) {
+  function handleGraphAutocompleteKey(key, shiftKey = false) {
     if (key === "Escape") return hideGraphAutocomplete();
-    if (key === "Enter" || key === "Tab")
-      return chooseGraphAutocomplete(autocompleteIndex);
+    if (key === "Enter") return chooseGraphAutocomplete(autocompleteIndex);
+    const forward = key === "ArrowDown" || (key === "Tab" && !shiftKey);
     autocompleteIndex =
-      (autocompleteIndex +
-        (key === "ArrowDown" ? 1 : -1) +
-        autocompleteItems.length) %
+      (autocompleteIndex + (forward ? 1 : -1) + autocompleteItems.length) %
       autocompleteItems.length;
     renderAutocompleteSelection();
   }
