@@ -97,7 +97,9 @@
         toolbarBounds.top,
       );
       const bounds = field.getBoundingClientRect();
-      const padding = 12;
+      // Leave a comfortable gap so the caret and the last line are not
+      // visually touched by the toolbar border or its shadow.
+      const padding = 32;
       let delta = 0;
       if (bounds.bottom > visibleBottom - padding)
         delta = bounds.bottom - visibleBottom + padding;
@@ -106,7 +108,9 @@
       if (Math.abs(delta) > 1)
         notnoteWrap.scrollTo({
           top: Math.max(0, notnoteWrap.scrollTop + delta),
-          behavior: "smooth",
+          // Keyboard viewport changes can interrupt smooth scrolling and leave
+          // a newly created final block underneath the mobile toolbar.
+          behavior: "auto",
         });
     });
   };
@@ -116,7 +120,13 @@
     if (!viewport) return;
     const viewportBottom = viewport.height + viewport.offsetTop;
     const keyboardInset = Math.max(0, mobileViewportHeight - viewportBottom);
-    if (keyboardInset < 80)
+    // offsetTop can increase when iOS pans the visual viewport, making the
+    // bottom-based inset look too small even while the keyboard is open.
+    const keyboardSpace = Math.max(
+      keyboardInset,
+      mobileViewportHeight - viewport.height,
+    );
+    if (keyboardSpace < 80)
       mobileViewportHeight = Math.max(
         mobileViewportHeight,
         window.innerHeight,
@@ -124,7 +134,11 @@
       );
     mobileBlockToolbar.classList.toggle(
       "keyboard-visible",
-      keyboardInset >= 80,
+      keyboardSpace >= 80,
+    );
+    notnoteWrap.style.setProperty(
+      "--mobile-keyboard-inset",
+      `${keyboardSpace}px`,
     );
     const toolbarHeight = mobileBlockToolbar.getBoundingClientRect().height;
     if (toolbarHeight) {

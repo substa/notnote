@@ -3779,6 +3779,22 @@ body.image-lightbox-open {
   .settings-shortcuts input[type="search"] {
     width: 100%;
   }
+  .notnote-wrap {
+    --mobile-bottom-space: max(
+      320px,
+      calc(var(--mobile-keyboard-inset, 0px) + 140px)
+    );
+  }
+  .statusbar {
+    position: relative;
+    flex: 0 0 calc(30px + env(safe-area-inset-bottom));
+  }
+  .editor,
+  .source-editor,
+  .outliner {
+    min-height: calc(100% + var(--mobile-bottom-space));
+    padding-bottom: var(--mobile-bottom-space);
+  }
   .outliner {
     width: calc(100% - 28px);
     max-width: 100%;
