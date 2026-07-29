@@ -1789,9 +1789,13 @@ Open, save, export, and reach recent documents or headings from the command pale
       : '<p class="task-dashboard-empty">No tasks</p>';
   }
 
-  function graphContextBlockElement(block, page, variant) {
+  function graphContextBlockElement(block, page, variant, expanded = false) {
     const node = document.createElement("div");
-    node.className = `context-block-node${block.children.length ? " has-children collapsed" : ""}`;
+    node.className = "context-block-node";
+    if (block.children.length) {
+      node.classList.add("has-children");
+      if (!expanded) node.classList.add("collapsed");
+    }
     node.dataset.contextBlockId = block.id;
     const row = document.createElement("div");
     row.className = "context-block-row";
@@ -1800,8 +1804,11 @@ Open, save, export, and reach recent documents or headings from the command pale
       toggle.type = "button";
       toggle.className = "context-block-toggle";
       toggle.dataset.contextBlockToggle = "";
-      toggle.setAttribute("aria-expanded", "false");
-      toggle.setAttribute("aria-label", "Expand nested blocks");
+      toggle.setAttribute("aria-expanded", String(expanded));
+      toggle.setAttribute(
+        "aria-label",
+        expanded ? "Collapse nested blocks" : "Expand nested blocks",
+      );
       row.append(toggle);
     } else {
       const spacer = document.createElement("span");
@@ -3543,9 +3550,14 @@ Open, save, export, and reach recent documents or headings from the command pale
           }).format(timestamp)
         : "";
     };
-    const referenceSnippet = (item) =>
-      graphContextBlockElement(item.block, item.page, "reference").outerHTML;
-    const renderGroups = (items, limit = false) => {
+    const referenceSnippet = (item, expandNested = false) =>
+      graphContextBlockElement(
+        item.block,
+        item.page,
+        "reference",
+        expandNested,
+      ).outerHTML;
+    const renderGroups = (items, limit = false, expandNested = false) => {
       const groups = new Map();
       items.forEach((item) => {
         if (!groups.has(item.page.title)) groups.set(item.page.title, []);
@@ -3560,7 +3572,7 @@ Open, save, export, and reach recent documents or headings from the command pale
       const rows = visible
         .map(([title, group]) => {
           const date = creationDate(group[0].page);
-          return `<div class="reference-group"><div class="reference-page-row"><button class="reference-page graph-page-ref" data-page="${escapeHtml(title)}">${escapeHtml(title)}</button><span class="reference-leader" aria-hidden="true"></span>${date ? `<time class="reference-date">${escapeHtml(date)}</time>` : ""}</div>${group.map((item) => `<div class="reference-result has-context-tree" role="button" tabindex="0" data-reference-page="${escapeHtml(title)}" data-reference-page-path="${escapeHtml(item.page.path)}" data-reference-block="${escapeHtml(item.block.id)}">${referenceSnippet(item)}</div>`).join("")}</div>`;
+          return `<div class="reference-group"><div class="reference-page-row"><button class="reference-page graph-page-ref" data-page="${escapeHtml(title)}">${escapeHtml(title)}</button><span class="reference-leader" aria-hidden="true"></span>${date ? `<time class="reference-date">${escapeHtml(date)}</time>` : ""}</div>${group.map((item) => `<div class="reference-result has-context-tree" role="button" tabindex="0" data-reference-page="${escapeHtml(title)}" data-reference-page-path="${escapeHtml(item.page.path)}" data-reference-block="${escapeHtml(item.block.id)}">${referenceSnippet(item, expandNested)}</div>`).join("")}</div>`;
         })
         .join("");
       return (
@@ -3596,7 +3608,7 @@ Open, save, export, and reach recent documents or headings from the command pale
     const unlinked = includeUnlinked
       ? graphIndex.unlinkedReferences(pageTitle)
       : [];
-    references.innerHTML = `<details${linked.length ? " open" : ""}><summary>Linked references · ${linked.length}</summary>${renderGroups(linked, !state.referencesExpanded)}</details>${blockUuid ? `<details${blockLinked.length ? " open" : ""}><summary>Block references · ${blockLinked.length}</summary>${renderGroups(blockLinked)}</details>` : ""}${includeUnlinked ? `<details${unlinked.length ? " open" : ""}><summary>Unlinked references · ${unlinked.length}</summary>${renderGroups(unlinked)}</details>` : '<button class="unlinked-button" data-show-unlinked>Find unlinked references</button>'}`;
+    references.innerHTML = `<details${linked.length ? " open" : ""}><summary>Linked references · ${linked.length}</summary>${renderGroups(linked, !state.referencesExpanded, true)}</details>${blockUuid ? `<details${blockLinked.length ? " open" : ""}><summary>Block references · ${blockLinked.length}</summary>${renderGroups(blockLinked)}</details>` : ""}${includeUnlinked ? `<details${unlinked.length ? " open" : ""}><summary>Unlinked references · ${unlinked.length}</summary>${renderGroups(unlinked)}</details>` : '<button class="unlinked-button" data-show-unlinked>Find unlinked references</button>'}`;
     $$(".reference-result[data-reference-page-path]", references).forEach(
       (result) => {
         const page = graphStore.pages.find(
