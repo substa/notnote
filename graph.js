@@ -1,3 +1,7 @@
+/**
+ * DOM-free graph model, index, and storage adapters.
+ * The classic-script wrapper keeps the same implementation usable by browser bundles and Node VM tests.
+ */
 (() => {
   "use strict";
 

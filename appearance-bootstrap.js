@@ -1,3 +1,7 @@
+/**
+ * Apply persisted theme values before styles render to prevent a light/dark startup flash.
+ * Keep this bootstrap independent from the deferred application bundle.
+ */
 (() => {
   "use strict";
 

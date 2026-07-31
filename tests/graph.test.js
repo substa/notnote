@@ -1,3 +1,4 @@
+// Verify the DOM-free graph model, storage adapters, and offline synchronization semantics.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

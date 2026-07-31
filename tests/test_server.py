@@ -1,3 +1,5 @@
+"""Security, path handling, and optional Git integration tests for the Python server."""
+
 import json
 import re
 import shutil

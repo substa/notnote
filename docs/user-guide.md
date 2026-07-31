@@ -468,7 +468,7 @@ Available themes:
 
 For an open graph, the selected theme persists in `.notnote/settings.json` and follows the graph across devices.
 
-Fonts and the main colors for the light and dark themes can be customized in `theme-config.css`. This file is loaded after the application stylesheet, so its CSS variables override the defaults without requiring changes to `styles.css`.
+Fonts and the main colors for the light and dark themes can be customized in `theme-config.css`. Its rules follow `styles.css` in the production stylesheet entry, so they override the defaults. Run `npm run build` after changing either source stylesheet.
 
 
 ## Privacy and security

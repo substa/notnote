@@ -92,11 +92,9 @@ def referenced_asset_paths(content: str, paths: list[str]) -> set[str]:
 STATIC_FILES = {
     "/",
     "/index.html",
-    "/styles.css",
-    "/theme-config.css",
     "/appearance-bootstrap.js",
-    "/graph.js",
-    "/app.js",
+    "/app.bundle.css",
+    "/app.bundle.js",
     "/sw.js",
     "/manifest.webmanifest",
     "/docs/index.html",

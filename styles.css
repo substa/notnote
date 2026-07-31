@@ -1,3 +1,8 @@
+/*
+ * Core application layout and component styles.
+ * Theme-specific typography and color overrides belong in theme-config.css.
+ */
+
 @font-face {
   font-family: NotnoteMono;
   src: local("SFMono-Regular"), local("Menlo"), local("Consolas");

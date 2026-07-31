@@ -1,5 +1,9 @@
-// Keep the application shell separate from bounded, user-opened graph assets.
-const CACHE = "notnote-editor-v88";
+/**
+ * Offline runtime for the versioned application shell and bounded graph attachments.
+ * Shell files are immutable within a generated revision; user assets use a separate
+ * size-limited cache.
+ */
+const CACHE = "notnote-editor-868d55a8c279";
 const ASSET_CACHE = "notnote-graph-assets-v1";
 const SETTINGS_CACHE = "notnote-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;
@@ -12,11 +16,9 @@ let maxAssetBytesPromise = null;
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./theme-config.css",
   "./appearance-bootstrap.js",
-  "./graph.js",
-  "./app.js",
+  "./app.bundle.css",
+  "./app.bundle.js",
   "./docs/index.html",
   "./docs/user-guide.md",
   "./docs/deployment.md",
@@ -44,7 +46,11 @@ self.addEventListener("install", (event) =>
     caches
       .open(CACHE)
       .then((cache) =>
-        Promise.allSettled(ASSETS.map((path) => cache.add(path))),
+        Promise.allSettled(
+          ASSETS.map((path) =>
+            cache.add(new Request(path, { cache: "reload" })),
+          ),
+        ),
       )
       .then(() => self.skipWaiting()),
   ),

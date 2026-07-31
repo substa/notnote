@@ -17,7 +17,8 @@ Thumbs.db
 .idea/
 *.swp
 
-# Temporary output
+# JavaScript dependencies and temporary output
+node_modules/
 *.log
 .tmp/
 tmp/

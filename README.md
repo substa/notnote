@@ -44,7 +44,7 @@ The complete user guide is available in [docs/user-guide.md](docs/user-guide.md)
 
 ## Requirements and quick start
 
-The browser application has no package dependencies or build step. You need a current browser and any local static web server. The example below uses Python 3:
+The browser application ships as a prebuilt, dependency-free bundle. You need a current browser and any local static web server; no installation or build is required to run a checkout. The example below uses Python 3:
 
 ```bash
 python3 -m http.server 4173
@@ -52,7 +52,7 @@ python3 -m http.server 4173
 
 Open [http://localhost:4173](http://localhost:4173).
 
-Python 3.10 or newer is required only for `server.py`. Node.js 18 or newer is required only to run the JavaScript tests. **Git is not installed or managed by notnote:** install it separately only if you want page history, automatic commits, or repository-based review. Editing, saving, synchronization, offline use, and backups all continue to work without Git.
+Python 3.10 or newer is required only for `server.py`. Node.js 22 or newer is required when changing browser code or running the complete JavaScript test suite. The browser smoke test uses Chrome when it is installed and skips cleanly when it is unavailable. **Git is not installed or managed by notnote:** install it separately only if you want page history, automatic commits, or repository-based review. Editing, saving, synchronization, offline use, and backups all continue to work without Git.
 
 The single-document editor works in current browsers. Direct graph access uses the File System Access API.
 
@@ -103,13 +103,23 @@ After deploying an update, close and reopen the installed application so the lat
 
 ## Development
 
-The project intentionally uses browser JavaScript, CSS, HTML, and the Python standard library. There is no package installation step. See [docs/architecture.md](docs/architecture.md) for data flow, trust boundaries, and file ownership.
+The project intentionally uses browser JavaScript, CSS, HTML, and the Python standard library. Feature code remains in native ES modules and editable stylesheets, while esbuild produces one minified script and one minified stylesheet for browsers. See [docs/architecture.md](docs/architecture.md) for data flow, trust boundaries, and file ownership.
 
-Run the JavaScript tests with:
+Install the pinned development tool and rebuild after changing JavaScript, CSS, or critical shell files:
 
 ```bash
-node --test tests/*.test.js
+npm ci
+npm run build
 ```
+
+Run the JavaScript tests and verify that the committed bundle is current with:
+
+```bash
+npm test
+npm run build:check
+```
+
+The suite covers the graph model, module boundaries, browser startup and interactions, offline runtime registration, and large-graph performance regressions.
 
 Run the server tests and syntax check with:
 
@@ -131,9 +141,13 @@ assets/icons/       Browser and PWA icons
 assets/screenshots/ README screenshot
 docker/             Container image, Compose stack, and environment template
 docs/               User, architecture, and deployment documentation
-tests/              Graph parser and index tests
-app.js              Browser application and interface behavior
-graph.js            Markdown graph parser, index, and storage adapters
+tests/              Graph, server, browser, architecture, and performance tests
+app/                Browser feature source modules
+app.js              Application startup source
+app.bundle.js       Minified browser JavaScript bundle
+app.bundle.css      Minified browser stylesheet bundle
+graph.js            Graph model source and Node-test entry point
+scripts/             Deterministic browser build entry and build script
 index.html           Application markup
 styles.css           Core interface styles
 theme-config.css     Theme variables and editorial overrides
@@ -142,7 +156,7 @@ sw.js                Offline application cache
 manifest.webmanifest PWA metadata
 ```
 
-The root application files are served directly. Keeping them at the root avoids generated output and makes the static deployment path identical to the source tree.
+The browser loads one JavaScript bundle and one stylesheet bundle. Generated artifacts are committed for build-free deployment; CI rejects source drift, and the build derives the offline cache revision from the bundles and critical shell files.
 
 ## Deployment
 

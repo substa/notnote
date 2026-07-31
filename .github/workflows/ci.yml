@@ -1,3 +1,4 @@
+# Verify source behavior, generated browser artifacts, and both runtime container variants.
 name: CI
 
 on:
@@ -19,12 +20,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install build tooling
+        run: npm ci
+      - name: Verify production bundle
+        run: npm run build:check
       - name: Python tests
         run: |
           python -m unittest discover -s tests -p 'test_*.py'
           python -m py_compile server.py
       - name: JavaScript tests
-        run: node --test tests/*.test.js
+        run: npm test
       - name: Build default container
         run: docker build --file docker/Dockerfile --target runtime -t notnote:test .
       - name: Build Git-enabled container

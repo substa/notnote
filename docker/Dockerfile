@@ -1,3 +1,4 @@
+# Runtime-only image: browser artifacts are built and verified before the image is assembled.
 FROM python:3.13-slim AS runtime-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -5,8 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Copy only files served at runtime; repository and development files stay outside the image.
-COPY server.py index.html appearance-bootstrap.js app.js graph.js styles.css theme-config.css sw.js ./
+# Copy only the optimized browser bundle and files served at runtime.
+COPY server.py index.html appearance-bootstrap.js app.bundle.css app.bundle.js sw.js ./
 COPY manifest.webmanifest ./
 COPY docs/ ./docs/
 COPY settings/ ./settings/
