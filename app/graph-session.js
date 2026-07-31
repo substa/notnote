@@ -183,6 +183,11 @@ export async function flushGraphSave(interactive = false, force = false) {
   return result;
 }
 
+// Use an explicit instant scroll because the workspace has CSS smooth scrolling enabled.
+function scrollWorkspaceTo(top = 0) {
+  notnoteWrap.scrollTo({ top: Math.max(0, top), behavior: "instant" });
+}
+
 // Browser routes and the internal graph history are updated as one navigation boundary.
 function updateCurrentHistoryPosition() {
   const entry = session.graphHistory[session.graphHistoryIndex];
@@ -329,9 +334,7 @@ export async function navigateGraphHistory(direction) {
   )
     return;
   session.graphHistoryIndex = targetIndex;
-  requestAnimationFrame(() => {
-    notnoteWrap.scrollTop = entry.scrollTop || 0;
-  });
+  requestAnimationFrame(() => scrollWorkspaceTo(entry.scrollTop));
 }
 
 // Page loading is the navigation boundary: save current work, update history, then render.
@@ -410,6 +413,8 @@ export async function loadGraphPage(pageOrTitle, options = {}) {
   rememberGraphPage(page);
   syncGraphRoute(page, options);
   renderGraphPage();
+  // Fresh navigation starts at the top; history and block targets override this before paint.
+  scrollWorkspaceTo();
   updateStats();
   saveState.textContent = draftConflict
     ? "Recovery conflict"
@@ -664,7 +669,7 @@ async function openJournalDate(date, options = {}) {
     const entry = blockTree.querySelector(
       `[data-journal-path="${CSS.escape(page.path)}"]`,
     );
-    if (options.reset) notnoteWrap.scrollTop = 0;
+    if (options.reset) scrollWorkspaceTo();
     else entry?.scrollIntoView({ block: "start", behavior: "smooth" });
     if (state.vimEnabled) focusVimEditor();
   });
@@ -694,7 +699,6 @@ async function openSingleJournalDate(date) {
     session.graphIndex.rebuild(session.graphStore.pages);
   }
   await loadGraphPage(page, { journalMode: false });
-  notnoteWrap.scrollTop = 0;
 }
 
 function calendarTaskRowsHtml(tasks) {

@@ -915,7 +915,6 @@ export async function openSingleJournalPage(pagePath) {
   const page = session.graphStore?.pages.find((item) => item.path === pagePath);
   if (!page) return;
   await loadGraphPage(page, { journalMode: false });
-  notnoteWrap.scrollTop = 0;
 }
 
 // Page title operations share the same validation and persistence boundary.
