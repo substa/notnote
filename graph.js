@@ -505,6 +505,17 @@
     ].map((match) => match[2]);
   }
 
+  function trailingTagQuery(text) {
+    const match = String(text || "").match(
+      /(?:^|\s)#([\p{L}\p{N}_/-]*)$/u,
+    );
+    if (!match) return null;
+    return {
+      query: match[1],
+      start: match.index + match[0].lastIndexOf("#"),
+    };
+  }
+
   function pageTitle(content, filename) {
     const rawBase = filename.replace(/\.(md|markdown)$/i, "");
     const namespacedFile = /___|%2f/i.test(rawBase);
@@ -1946,6 +1957,7 @@
     isEmptyPageContent,
     pageReferences,
     blockReferences,
+    trailingTagQuery,
     pageTitle,
     normalizePage,
     resolveAssetPath,

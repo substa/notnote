@@ -532,7 +532,7 @@ function inlineToMarkdown(node) {
       return `<iframe ${attributes.join(" ")}></iframe>`;
     }
     case "BR":
-      return "  \n";
+      return " ".repeat(2) + "\n";
     default:
       return inner;
   }

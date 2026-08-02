@@ -648,6 +648,22 @@ function graphPageMatchRank(page, query) {
     ),
   );
 }
+function pageAutocompleteResults(title) {
+  if (!session.graphIndex || title.length < 2) return [];
+  const query = Graph.normalizePage(title);
+  return session.graphIndex
+    .pageSuggestions()
+    .map((page) => ({ page, rank: graphPageMatchRank(page, query) }))
+    .filter((item) => Number.isFinite(item.rank))
+    .sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        a.page.title.length - b.page.title.length ||
+        a.page.title.localeCompare(b.page.title),
+    )
+    .slice(0, 12)
+    .map((item) => item.page);
+}
 function blockAutocompleteResults(query) {
   if (!session.graphIndex) return [];
   const needle = Graph.normalizePage(query);
@@ -685,9 +701,18 @@ export function showGraphAutocomplete(field) {
   const before = field.value.slice(0, field.selectionStart);
   const wikiMatch = before.match(/\[\[([^\]]*)$/);
   const blockMatch = before.match(/\(\(([^)]*)$/);
+  const tagMatch =
+    !wikiMatch && !blockMatch ? Graph.trailingTagQuery(before) : null;
   const slashMatch = before.match(/\/([^/\n]*)$/);
   const angleMatch = before.match(/<([^<\n]*)$/);
-  if (angleMatch) {
+  if (tagMatch && session.graphIndex) {
+    const title = tagMatch.query.trim();
+    autocompleteItems = pageAutocompleteResults(title).map((page) => ({
+      ...page,
+      tagAutocomplete: true,
+      tagStart: tagMatch.start,
+    }));
+  } else if (angleMatch) {
     const rawQuery = angleMatch[1].trim();
     const [name = "", ...remainder] = rawQuery.split(/\s+/);
     const typedCommand = `<${name.toLowerCase()}`;
@@ -728,23 +753,10 @@ export function showGraphAutocomplete(field) {
     }
   } else if (wikiMatch && session.graphIndex) {
     const title = wikiMatch[1].trim();
-    if (title.length < 2) return hideGraphAutocomplete();
-    const query = Graph.normalizePage(title);
-    const pages = session.graphIndex.pageSuggestions();
-    const matches = pages
-      .map((page) => ({ page, rank: graphPageMatchRank(page, query) }))
-      .filter((item) => Number.isFinite(item.rank))
-      .sort(
-        (a, b) =>
-          a.rank - b.rank ||
-          a.page.title.length - b.page.title.length ||
-          a.page.title.localeCompare(b.page.title),
-      )
-      .slice(0, 12)
-      .map((item) => item.page);
-    const exactMatch = query && session.graphIndex.resolvePage(title);
+    const matches = pageAutocompleteResults(title);
+    const exactMatch = title && session.graphIndex.resolvePage(title);
     autocompleteItems =
-      title && !exactMatch
+      title.length >= 2 && !exactMatch
         ? [{ title, create: true }, ...matches].slice(0, 12)
         : matches;
   } else if (blockMatch)
@@ -819,6 +831,15 @@ export function chooseGraphAutocomplete(index = autocompleteIndex) {
   const block = session.activeGraphBlock?.block;
   if (!item || !field || !block) return;
   const before = field.value.slice(0, field.selectionStart);
+  if (item.tagAutocomplete) {
+    const simpleTag = /^[\p{L}\p{N}_/-]+$/u.test(item.title);
+    const replacement = simpleTag ? `#${item.title}` : `#[[${item.title}]]`;
+    field.setRangeText(replacement, item.tagStart, field.selectionStart, "end");
+    field.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    hideGraphAutocomplete();
+    field.focus();
+    return;
+  }
   if (item.blockAutocomplete) {
     const start = before.lastIndexOf("((");
     const end = field.selectionStart;

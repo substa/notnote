@@ -203,6 +203,19 @@ test('does not index tags or references inside fenced code', () => {
   assert.equal(index.referencesToPage('Real page').length, 1);
 });
 
+test('recognizes a tag being typed at the caret', () => {
+  assert.deepEqual(
+    { ...Graph.trailingTagQuery('Discuss #nome') },
+    { query: 'nome', start: 8 }
+  );
+  assert.deepEqual(
+    { ...Graph.trailingTagQuery('#persone/nome') },
+    { query: 'persone/nome', start: 0 }
+  );
+  assert.equal(Graph.trailingTagQuery('color:#000000'), null);
+  assert.equal(Graph.trailingTagQuery('already #done '), null);
+});
+
 test('indexes page and block references', () => {
   const pages = [
     { title: 'Source', path: 'pages/source.md', content: '- See [[Alias]] and ((12345678-abcd))\n' },
