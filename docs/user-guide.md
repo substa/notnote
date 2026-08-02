@@ -31,7 +31,7 @@ notnote can run in a normal browser tab or as an installed Progressive Web App. 
 
 ### Docker
 
-The `docker/` directory contains the Dockerfile, Compose stack, environment template, and a complete [deployment guide](./deployment.md). The container exposes notnote only on server loopback for diagnostics and on a private Docker network shared with Newt. Pangolin (or different access platform) must require authentication before forwarding traffic to `http://notnote:4176`; never expose the writable Python API directly to the internet.
+The `docker/` directory contains the Dockerfile, Compose stack, environment template, and a complete [deployment guide](./deployment.md). By default, the container publishes notnote only on server loopback. For remote use, a separate VPN, access gateway, authenticated proxy, tunnel, or similar tool must control access before forwarding traffic to notnote; never expose the writable Python API directly to the internet.
 
 ## Command palette
 

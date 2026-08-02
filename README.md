@@ -85,7 +85,7 @@ python3 server.py \
 
 Open [http://localhost:4176](http://localhost:4176). To use another device on a trusted LAN, bind to `0.0.0.0` and connect through the host's private address.
 
-The graph API does not provide application-level authentication. Do not expose it directly to the public internet. Put an authenticated reverse proxy in front of it for remote access. The provided Docker configuration is designed for this model; see [docs/deployment.md](docs/deployment.md) for the Pangolin setup. Treat every authenticated user as having full read/write access to the configured graph.
+The graph API does not provide application-level authentication. Do not expose it directly to the public internet. For remote use, provide authentication and access control through a separate VPN, access gateway, authenticated proxy, tunnel, or similar tool. See [docs/deployment.md](docs/deployment.md) for provider-neutral guidance. Treat every admitted user as having full read/write access to the configured graph.
 
 ## Privacy and storage
 
@@ -162,7 +162,7 @@ The browser loads one JavaScript bundle and one stylesheet bundle. Generated art
 
 The static editor can be hosted on any HTTPS-capable static host. The writable graph server can run directly with Python or through the included Docker Compose configuration.
 
-For internet access, use authentication and TLS at a reverse proxy, keep the Python service private, and back up the graph independently of the application. Detailed Docker, Pangolin, update, backup, and troubleshooting instructions are in [docs/deployment.md](docs/deployment.md).
+For internet access, provide authentication, access control, and TLS through a suitable external tool, keep the Python service private, and back up the graph independently of the application. Docker, remote-access, update, and maintenance guidance is available in [docs/deployment.md](docs/deployment.md).
 
 ## Scope
 
