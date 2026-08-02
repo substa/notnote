@@ -1000,8 +1000,7 @@ export function syncGraphNewBlockElement(container, document, page) {
     );
 }
 
-// Rebuild the outliner from the graph model after structural mutations.
-// Rebuild the outliner after structural changes; active text fields update in place elsewhere.
+// Rebuild after structural changes; active text fields update in place elsewhere.
 export function renderGraphPage() {
   if (!state.graphMode || !state.graphDocument) return;
   closeBlockContextMenu();

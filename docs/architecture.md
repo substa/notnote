@@ -68,7 +68,7 @@ Git is an adapter around already-saved graph files, not a storage requirement. I
 
 ## Trust boundaries
 
-The writable server API has no identity system. Network reachability grants graph access. Production internet deployment therefore places authentication and TLS at a reverse proxy and keeps port 4176 private. Origin checks reduce browser cross-site writes but do not replace authentication.
+The writable server API has no identity system. Network reachability grants graph access. Remote deployments must therefore provide access control and authentication through a separate trusted mechanism, with TLS whenever traffic crosses an untrusted network. Port 4176 must not be exposed directly to the internet. Origin checks reduce browser cross-site writes but do not replace authentication.
 
 All client-supplied paths are resolved beneath the graph root. Markdown writes are extension-restricted; assets are restricted to `assets/`; symlink escapes resolve outside the graph and are rejected. Static application serving uses an explicit allowlist so repository metadata and unrelated host files are not exposed.
 

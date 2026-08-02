@@ -23,7 +23,7 @@ python3 server.py \
 
 Open `http://localhost:4176` on the server or `http://SERVER-IP:4176` from another device. Every client reads and writes the same files.
 
-> The graph API has no application authentication. Use it only on a trusted network and never expose it directly to the internet. Remote deployment requires TLS and access control at a reverse proxy; every user admitted by that proxy can read and modify the complete graph.
+> The graph API has no application authentication. Use it only on a trusted network and never expose it directly to the internet. Remote deployment requires access control and authentication through a separate trusted tool, plus TLS whenever traffic crosses an untrusted network. Every admitted user or device can read and modify the complete graph.
 
 ## Installation and PWA
 
@@ -168,6 +168,8 @@ Type `[[`. notnote immediately inserts `]]` and leaves the caret between the bra
 
 Enter at least two characters to display page suggestions. If the page does not exist, choose **Create page** and press `Enter`. The reference is completed and the page is created. The caret remains immediately after the closing `]]`, so typing can continue in the same block.
 
+Tags use the same index. Type `#` followed by at least two characters to display matching pages and existing tags. Namespaced tags such as `#people/alice` are supported; a selected page title containing spaces is inserted as `#[[Page title]]`.
+
 ### Rename a page
 
 Use **Rename document** or `F2`, edit the title, then select the minimal checkmark icon to save. The adjacent trash icon deletes the current page after confirmation. notnote can update matching `[[...]]` references throughout the graph. Case-only changes such as `test` to `Test` are supported, including on case-insensitive filesystems. Journal pages cannot be renamed or deleted, preserving journal invariants.
@@ -189,13 +191,13 @@ If Git requests an author name or email, configure them by following the officia
 
 After the initial commit, open **Settings → Git**. Automatic commits can group nearby graph changes into one snapshot after a delay of 5, 10, 30, or 60 seconds. Commit messages describe the staged changes, for example `Update Earth`, `Add journal 2026-07-22`, `Rename Old page to New page`, or `Update Earth and Marvin`. **Push after commit** publishes each snapshot through the current branch's configured upstream; Git credentials must already be available to the operating-system user running `server.py`. notnote never stores Git credentials.
 
-Use **Commit now** or **Commit and push now** to create a snapshot without waiting for the delay. Changes made externally by other applications are detected and included. Repository hooks are disabled for commits created by notnote, preventing older `pre-commit` or `post-commit` automation from running twice.
+Use **Commit now** or **Commit and push now** to create a snapshot without waiting for the delay. Changes made externally by other applications are detected and included. Repository hooks are disabled for commits created by notnote, so graph-specific hook automation is not executed by background snapshots.
 
 Automatic Git synchronization does not pull, rebase, force-push, or resolve conflicts. All editing devices are expected to use the same notnote server. If remote history is changed independently, reconcile it manually before enabling push again. A push failure does not affect the saved Markdown files or the local commit.
 
 After at least one commit exists, choose **Page history** from the footer menu to display up to 100 commits for the current Markdown file. Each entry shows the short commit hash, subject, author, and date. Expand a commit to load and display its unified diff for that page; diffs are fetched only when requested. Added lines are highlighted in green, removed lines in red, hunk headers in cyan, and Git metadata uses the same syntax palette as code blocks. Select **Restore this version** and confirm to replace the current page with the complete Markdown content stored in that commit. The restore is written as a normal page change, so it can become a new snapshot without rewriting Git history. Rename history is followed when Git can detect it, and a notice appears when the working copy has uncommitted changes; restoring while that notice is present replaces those uncommitted changes.
 
-The browser cannot inspect Git repositories opened directly through the File System Access API, so this feature is unavailable in direct local graph mode. The Docker image includes Git. notnote invokes Git with argument arrays rather than a shell and restricts the requested path to the configured graph.
+The browser cannot inspect Git repositories opened directly through the File System Access API, so this feature is unavailable in direct local graph mode. The default Docker image does not include Git; select the optional `runtime-git` target to enable these features in a container. notnote invokes Git with argument arrays rather than a shell and restricts the requested path to the configured graph.
 
 ## Blocks and outliner
 
@@ -477,12 +479,12 @@ In local mode, content is not sent to external services. In LAN mode, content is
 
 The LAN server:
 
-- currently has no application authentication and is limited to trusted networks;
+- has no application authentication and should be reachable only by trusted users or devices;
 - rejects cross-origin browser writes and does not enable CORS;
 - exposes only allowlisted application files and restricts graph access to the configured directory;
 - blocks graph symlinks from bulk scans, limits uploads and note sizes, and serves unsafe attachments as downloads;
 - uses atomic writes and restrictive browser security headers;
-- must still use HTTPS through a reverse proxy before internet exposure.
+- requires external access control and authentication for remote use, plus TLS whenever traffic crosses an untrusted network.
 
 Back up the graph regularly, especially before bulk renames or concurrent editing from multiple applications.
 

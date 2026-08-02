@@ -114,7 +114,7 @@ These are examples rather than endorsed or complete procedures. Consult the offi
 
 Whichever approach is chosen:
 
-- require authentication before any notnote page or API endpoint is reachable;
+- authenticate the user or device before any notnote page or API endpoint is reachable;
 - grant access only to intended users or devices;
 - use TLS when traffic crosses an untrusted network;
 - do not publish port `4176` directly to the internet;
@@ -123,7 +123,7 @@ Whichever approach is chosen:
 
 A tool running directly on the Docker host can reach the default loopback endpoint at `http://127.0.0.1:4176`. A tool running in another container needs an appropriate Docker network connection and can then use `http://notnote:4176`. Some private-network solutions may instead require `NOTNOTE_BIND_ADDRESS` to be set to the address of a controlled VPN or private interface. Do not set it to `0.0.0.0` on an internet-facing host without an effective firewall and access controls. The exact integration depends on the selected tool and is intentionally left to its official documentation.
 
-After configuring remote access, open the external address in a private browser window. Authentication must be requested before notnote is displayed. Then verify that you can create, edit, reload, and upload a test attachment without allowing unauthenticated access.
+After configuring remote access, verify from an unauthorized user or device that notnote cannot be reached. Then connect through the authorized path and confirm that you can create, edit, reload, and upload a test attachment.
 
 ## 5. Install the PWA
 
@@ -132,7 +132,7 @@ PWA installation requires HTTPS, except on `localhost`:
 - on iPhone or iPad, use Safari's **Share → Add to Home Screen**;
 - on desktop, use the browser's install action.
 
-Authentication and session expiry remain the responsibility of the selected access tool. If a session expires, open the remote address in the browser and authenticate again.
+Access control, authentication, and any session expiry remain the responsibility of the selected tool. If access expires, reconnect or authenticate according to that tool's documentation.
 
 An authenticated PWA can retain an offline graph replica in browser IndexedDB. Protect each device with its operating-system lock and remove the site's data from lost or retired devices where possible.
 
