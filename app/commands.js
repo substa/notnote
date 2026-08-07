@@ -887,7 +887,10 @@ export async function activateJournalBlock(
   if (!page) return;
   if (page.path !== state.graphPage?.path) {
     if (state.dirty && !(await flushGraphSave(true))) return;
-    await loadGraphPage(page, { journalMode: true });
+    await loadGraphPage(page, {
+      journalMode: true,
+      preserveScroll: true,
+    });
   }
   const block = graphBlockLocation(blockId)?.block;
   if (!block) return;

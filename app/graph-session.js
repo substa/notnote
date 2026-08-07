@@ -340,6 +340,9 @@ export async function navigateGraphHistory(direction) {
 // Page loading is the navigation boundary: save current work, update history, then render.
 export async function loadGraphPage(pageOrTitle, options = {}) {
   if (!session.graphStore || !session.graphIndex) return;
+  const preservedScrollTop = options.preserveScroll
+    ? notnoteWrap.scrollTop
+    : null;
   if (voiceRecording?.finishing)
     return toast("Wait for the voice note to finish saving");
   if (voiceRecording) finishVoiceRecording(false);
@@ -413,8 +416,9 @@ export async function loadGraphPage(pageOrTitle, options = {}) {
   rememberGraphPage(page);
   syncGraphRoute(page, options);
   renderGraphPage();
-  // Fresh navigation starts at the top; history and block targets override this before paint.
-  scrollWorkspaceTo();
+  // Fresh navigation starts at the top. Switching the editable journal within
+  // the continuous timeline keeps the reader's current position instead.
+  scrollWorkspaceTo(preservedScrollTop ?? 0);
   updateStats();
   saveState.textContent = draftConflict
     ? "Recovery conflict"
