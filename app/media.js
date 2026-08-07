@@ -299,7 +299,7 @@ export async function startVoiceRecording(field, block, start, end) {
     if (session.graphStore !== store || state.graphPage?.path !== pagePath)
       throw new Error("The source page changed before recording started");
     const recorder = createVoiceRecorder(stream, preparedContext);
-    const session = {
+    const recordingSession = {
       recorder,
       stream,
       store,
@@ -310,25 +310,33 @@ export async function startVoiceRecording(field, block, start, end) {
       save: true,
       finishing: false,
     };
-    voiceRecording = session;
+    voiceRecording = recordingSession;
     recorder.addEventListener("dataavailable", (event) => {
-      if (event.data?.size) session.chunks.push(event.data);
+      if (event.data?.size) recordingSession.chunks.push(event.data);
     });
-    recorder.addEventListener("stop", () => completeVoiceRecording(session), {
-      once: true,
-    });
+    recorder.addEventListener(
+      "stop",
+      () => completeVoiceRecording(recordingSession),
+      { once: true },
+    );
     stream.getTracks().forEach((track) => {
       track.addEventListener(
         "ended",
         () => {
-          if (voiceRecording === session && recorder.state !== "inactive")
+          if (
+            voiceRecording === recordingSession &&
+            recorder.state !== "inactive"
+          )
             finishVoiceRecording(true);
         },
         { once: true },
       );
     });
     recorder.start(1000);
-    session.timer = setInterval(() => updateVoiceRecordingTime(session), 500);
+    recordingSession.timer = setInterval(
+      () => updateVoiceRecordingTime(recordingSession),
+      500,
+    );
     $("#voiceRecorderTime").textContent = "00:00";
     setVoiceRecordingUi(true);
     toast("Recording voice note");
