@@ -701,10 +701,12 @@ export function showGraphAutocomplete(field) {
   const before = field.value.slice(0, field.selectionStart);
   const wikiMatch = before.match(/\[\[([^\]]*)$/);
   const blockMatch = before.match(/\(\(([^)]*)$/);
-  const tagMatch =
-    !wikiMatch && !blockMatch ? Graph.trailingTagQuery(before) : null;
-  const slashMatch = before.match(/\/([^/\n]*)$/);
-  const angleMatch = before.match(/<([^<\n]*)$/);
+  // Page and block references take precedence over command delimiters that
+  // may already occur earlier in an existing block (for example in a URL).
+  const outsideReference = !wikiMatch && !blockMatch;
+  const tagMatch = outsideReference ? Graph.trailingTagQuery(before) : null;
+  const slashMatch = outsideReference ? before.match(/\/([^/\n]*)$/) : null;
+  const angleMatch = outsideReference ? before.match(/<([^<\n]*)$/) : null;
   if (tagMatch && session.graphIndex) {
     const title = tagMatch.query.trim();
     autocompleteItems = pageAutocompleteResults(title).map((page) => ({
