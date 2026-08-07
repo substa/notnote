@@ -11,7 +11,7 @@ import {
   mobileBlockToolbar,
   voiceRecorderPanel,
 } from "./dom.js";
-import { session, state } from "./state.js";
+import { session as appSession, state } from "./state.js";
 
 
 
@@ -29,7 +29,8 @@ export function configureMediaDependencies(dependencies) {
 let assetUploadTarget = null;
 // Asset writes are delegated to the active graph store and inserted as relative references.
 export function uploadGraphAsset(field, block, start, end) {
-  if (!session.graphStore || !state.graphMode) return toast("Open a graph first");
+  if (!appSession.graphStore || !state.graphMode)
+    return toast("Open a graph first");
   assetUploadTarget = { field, block, start, end };
   assetInput.click();
 }
@@ -220,22 +221,24 @@ function insertVoiceRecording(target, markdown) {
   mediaDependencies.focusGraphBlock(block.id, target.start + markdown.length);
 }
 
-async function completeVoiceRecording(session) {
-  if (session.completing) return;
-  session.completing = true;
-  clearInterval(session.timer);
-  session.stream.getTracks().forEach((track) => track.stop());
-  if (!session.save) {
-    if (voiceRecording === session) voiceRecording = null;
+async function completeVoiceRecording(recordingSession) {
+  if (recordingSession.completing) return;
+  recordingSession.completing = true;
+  clearInterval(recordingSession.timer);
+  recordingSession.stream.getTracks().forEach((track) => track.stop());
+  if (!recordingSession.save) {
+    if (voiceRecording === recordingSession) voiceRecording = null;
     setVoiceRecordingUi(false);
-    targetVoiceRecordingField(session)?.focus();
+    targetVoiceRecordingField(recordingSession)?.focus();
     return;
   }
   setVoiceRecordingUi(true, true);
   try {
     const type =
-      session.recorder.mimeType || session.chunks[0]?.type || "audio/webm";
-    const blob = new Blob(session.chunks, { type });
+      recordingSession.recorder.mimeType ||
+      recordingSession.chunks[0]?.type ||
+      "audio/webm";
+    const blob = new Blob(recordingSession.chunks, { type });
     if (!blob.size || (/wav/i.test(type) && blob.size <= 44))
       throw new Error("The recording is empty");
     const now = new Date();
@@ -250,16 +253,16 @@ async function completeVoiceRecording(session) {
     ].join("");
     const extension = voiceFileExtension(type);
     const file = new File([blob], `voice-note-${stamp}.${extension}`, { type });
-    const path = await session.store.writeAsset(file);
-    if (session.graphStore !== session.store)
+    const path = await recordingSession.store.writeAsset(file);
+    if (appSession.graphStore !== recordingSession.store)
       throw new Error("The graph changed while recording");
     const label = `Voice note ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    insertVoiceRecording(session.target, `![${label}](${path})`);
+    insertVoiceRecording(recordingSession.target, `![${label}](${path})`);
     toast("Voice note embedded");
   } catch (error) {
     toast(error.message || "Could not save the voice note");
   } finally {
-    if (voiceRecording === session) voiceRecording = null;
+    if (voiceRecording === recordingSession) voiceRecording = null;
     setVoiceRecordingUi(false);
   }
 }
@@ -270,7 +273,8 @@ function targetVoiceRecordingField(session = voiceRecording) {
 
 // Prefer MediaRecorder, then fall back to a small WAV encoder when necessary.
 export async function startVoiceRecording(field, block, start, end) {
-  if (!session.graphStore || !state.graphMode) return toast("Open a graph first");
+  if (!appSession.graphStore || !state.graphMode)
+    return toast("Open a graph first");
   if (voiceRecording) return finishVoiceRecording(true);
   if (voiceRecordingStarting) return;
   const streamRequest = requestMicrophoneStream();
@@ -281,12 +285,13 @@ export async function startVoiceRecording(field, block, start, end) {
         : "Microphone access requires HTTPS",
     );
   voiceRecordingStarting = true;
-  const store = session.graphStore;
+  const store = appSession.graphStore;
   const pagePath = state.graphPage?.path;
   const target = { field, block, start, end, pagePath };
   voiceRecordingStartingTarget = target;
   let stream = null;
   let preparedContext = null;
+  let recordingSession = null;
   try {
     if (typeof MediaRecorder === "undefined") {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -296,10 +301,10 @@ export async function startVoiceRecording(field, block, start, end) {
       }
     }
     stream = await streamRequest;
-    if (session.graphStore !== store || state.graphPage?.path !== pagePath)
+    if (appSession.graphStore !== store || state.graphPage?.path !== pagePath)
       throw new Error("The source page changed before recording started");
     const recorder = createVoiceRecorder(stream, preparedContext);
-    const recordingSession = {
+    recordingSession = {
       recorder,
       stream,
       store,
@@ -341,8 +346,11 @@ export async function startVoiceRecording(field, block, start, end) {
     setVoiceRecordingUi(true);
     toast("Recording voice note");
   } catch (error) {
+    if (voiceRecording === recordingSession) voiceRecording = null;
+    clearInterval(recordingSession?.timer);
     stream?.getTracks().forEach((track) => track.stop());
     preparedContext?.close();
+    setVoiceRecordingUi(false);
     toast(
       error.name === "NotAllowedError"
         ? "Microphone permission was denied"
