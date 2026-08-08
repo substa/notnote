@@ -41,6 +41,7 @@ import {
   graphChanged,
   loadGraphPage,
   navigateGraphHistory,
+  navigateJournalDate,
   openGraph,
   openToday,
   syncGraphIndex,
@@ -414,6 +415,18 @@ const commands = [
     keywords: "daily notes journal today",
     aliases: "/today",
     run: () => requestAction(openToday),
+  },
+  {
+    label: "Previous journal day",
+    shortcutId: "journalPrevious",
+    keywords: "journal previous yesterday older date navigate",
+    run: () => requestAction(() => navigateJournalDate(-1)),
+  },
+  {
+    label: "Next journal day",
+    shortcutId: "journalNext",
+    keywords: "journal next tomorrow newer date navigate",
+    run: () => requestAction(() => navigateJournalDate(1)),
   },
   {
     label: "Task dashboard",

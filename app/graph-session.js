@@ -948,7 +948,22 @@ export function toggleJournalCalendar(
   $("#journalCalendarButton").setAttribute("aria-expanded", String(opening));
   if (opening) {
     calendarSelectAction = selectAction;
-    calendarFocusDate = initialDate ? new Date(initialDate) : new Date();
+    const focusedDate =
+      initialDate || (!selectAction && state.graphPage?.journalDate);
+    const dateParts =
+      typeof focusedDate === "string"
+        ? focusedDate.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+        : null;
+    calendarFocusDate = dateParts
+      ? new Date(
+          Number(dateParts[1]),
+          Number(dateParts[2]) - 1,
+          Number(dateParts[3]),
+          12,
+        )
+      : focusedDate
+        ? new Date(focusedDate)
+        : new Date();
     calendarFocusDate.setHours(12, 0, 0, 0);
     calendarViewDate = new Date(calendarFocusDate);
     calendarViewDate.setDate(1);
@@ -982,6 +997,15 @@ export function closeJournalCalendar() {
 
 export async function openToday(reset = false, options = {}) {
   return openJournalDate(new Date(), { reset, ...options });
+}
+
+export async function navigateJournalDate(direction) {
+  const journalDate = state.graphPage?.journalDate;
+  if (!journalDate) return toast("Open a journal first");
+  const [year, month, day] = journalDate.split("-").map(Number);
+  const target = new Date(year, month - 1, day, 12);
+  target.setDate(target.getDate() + (direction < 0 ? -1 : 1));
+  return openSingleJournalDate(target);
 }
 
 export async function closeGraph() {

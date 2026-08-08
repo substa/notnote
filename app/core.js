@@ -263,6 +263,18 @@ export const shortcutDefinitions = [
     keys: "Mod+Shift+J",
   },
   {
+    id: "journalPrevious",
+    section: "Navigation",
+    label: "Previous journal day",
+    keys: "Mod+Shift+ArrowLeft",
+  },
+  {
+    id: "journalNext",
+    section: "Navigation",
+    label: "Next journal day",
+    keys: "Mod+Shift+ArrowRight",
+  },
+  {
     id: "tasks",
     section: "Navigation",
     label: "Task dashboard",
@@ -499,6 +511,7 @@ Enable **Vim mode** from the command palette. In Normal mode, use \`h/j/k/l\`, \
 | ⌘/Ctrl + Shift + 7 | Numbered list |
 | ⌘/Ctrl + Shift + 8 | Bulleted list |
 | Alt + Arrow Up/Down | Previous or next block |
+| ⌘/Ctrl + Shift + Arrow Left/Right | Previous or next journal day |
 | Ctrl + D / Ctrl + U (Vim) | Jump forward or backward several blocks |
 | U / Ctrl + R (Vim) | Undo or redo a change |
 | ⌘/Ctrl + Enter | Commit the block and move to the next one |

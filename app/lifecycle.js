@@ -46,6 +46,7 @@ import {
   graphStatusLabel,
   loadGraphPage,
   navigateGraphHistory,
+  navigateJournalDate,
   openToday,
   pageFromGraphRoute,
   renderReferences,
@@ -185,6 +186,16 @@ document.addEventListener("keydown", (event) => {
   if (state.graphMode && shortcutMatches("today", event)) {
     event.preventDefault();
     requestAction(openToday);
+    return;
+  }
+  if (state.graphMode && shortcutMatches("journalPrevious", event)) {
+    event.preventDefault();
+    requestAction(() => navigateJournalDate(-1));
+    return;
+  }
+  if (state.graphMode && shortcutMatches("journalNext", event)) {
+    event.preventDefault();
+    requestAction(() => navigateJournalDate(1));
     return;
   }
   if (state.graphMode && shortcutMatches("blockCollapseAll", event)) {

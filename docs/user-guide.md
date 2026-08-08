@@ -320,6 +320,8 @@ Previous journal pages appear below today's entry and load progressively while s
 | Action | Command |
 | --- | --- |
 | Open today's journal | `⌘/Ctrl + Shift + J` |
+| Open the previous journal day as a single page | `⌘/Ctrl + Shift + ←` |
+| Open the next journal day as a single page | `⌘/Ctrl + Shift + →` |
 | Insert today's journal reference | `/today` |
 | Insert yesterday's journal reference | `/yesterday` |
 | Insert tomorrow's journal reference | `/tomorrow` |
