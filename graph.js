@@ -1325,6 +1325,11 @@
 
     async writeSettings(settings) {
       this.cache = this.cache || {};
+      if (
+        Object.hasOwn(this.cache, "settings") &&
+        JSON.stringify(this.cache.settings) === JSON.stringify(settings)
+      )
+        return;
       this.cache.settings = settings;
       if (this.offline)
         return this.queueOperation({ type: "settings", settings });

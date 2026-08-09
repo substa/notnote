@@ -3,7 +3,7 @@
  * Shell files are immutable within a generated revision; user assets use a separate
  * size-limited cache.
  */
-const CACHE = "notnote-editor-e6d9811c561f";
+const CACHE = "notnote-editor-09bf411284b9";
 const ASSET_CACHE = "notnote-graph-assets-v1";
 const SETTINGS_CACHE = "notnote-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;

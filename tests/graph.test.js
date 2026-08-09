@@ -333,6 +333,23 @@ test('opens a cached remote graph without waiting for the network', async () => 
   assert.equal(store.offline, false);
 });
 
+test('does not queue unchanged remote settings during cached startup', async () => {
+  const settings = { schemaVersion: 1, theme: 'system', journal: {} };
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: { files: [], config: {} },
+    operations: [],
+    settings,
+  };
+  store.offline = true;
+
+  await store.writeSettings({ ...settings });
+
+  assert.equal(store.cache.operations.length, 0);
+  assert.equal(store.pendingCount, 0);
+});
+
 test('queues and synchronizes remote page writes while offline', async () => {
   const store = new Graph.RemoteGraphStore({ name: 'Remote' });
   store.cache = { status: { name: 'Remote' }, files: { files: [], config: {} }, operations: [] };
