@@ -177,6 +177,22 @@ test("the browser starts and installs core interactions", async (context) => {
       ),
       false,
     );
+    assert.equal(
+      await client.value(`(() => {
+        const field = document.querySelector("#sourceEditor");
+        field.value = "selected text";
+        field.setSelectionRange(0, field.value.length);
+        const clipboard = new DataTransfer();
+        clipboard.setData("text/plain", "https://example.com/page");
+        field.dispatchEvent(new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: clipboard,
+        }));
+        return field.value;
+      })()`),
+      "[selected text](https://example.com/page)",
+    );
 
     await delay(200);
     const errors = client.events.filter((event) => {

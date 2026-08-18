@@ -34,7 +34,11 @@ import {
 import { closeAssetCleanupDialog, graphChanged } from "../graph-session.js";
 import { focusGraphBlock } from "../graph-view.js";
 import { takeAssetUploadTarget } from "../media.js";
-import { handleSelectionDelimiter, handleWikiPair } from "../outliner.js";
+import {
+  handleSelectionDelimiter,
+  handleWikiPair,
+  pasteUrlOverSelection,
+} from "../outliner.js";
 import { session, state } from "../state.js";
 import { activateSourceBlock, commitActiveBlock, recordVimChange } from "../vim.js";
 
@@ -182,18 +186,38 @@ export function initDocumentEvents() {
       recordVimChange(sourceEditor);
   });
   sourceEditor.addEventListener("input", changed);
+  sourceEditor.addEventListener("paste", (event) => {
+    pasteUrlOverSelection(event, sourceEditor, () =>
+      recordVimChange(sourceEditor),
+    );
+  });
   sourceEditor.addEventListener("keydown", (event) => {
     if (handleSelectionDelimiter(event)) return;
     handleWikiPair(event);
   });
   editor.addEventListener("paste", (event) => {
-    if (event.target.matches?.(".md-source-block")) return;
+    if (event.target.matches?.(".md-source-block")) {
+      pasteUrlOverSelection(event, event.target, () =>
+        recordVimChange(event.target),
+      );
+      return;
+    }
+    const pastedText = event.clipboardData?.getData("text/plain") || "";
+    const text = pastedText.trim();
+    const selection = getSelection();
+    if (selection && !selection.isCollapsed) {
+      try {
+        const url = new URL(text);
+        if (/^https?:$/.test(url.protocol)) {
+          event.preventDefault();
+          document.execCommand("createLink", false, text);
+          changed();
+          return;
+        }
+      } catch {}
+    }
     event.preventDefault();
-    document.execCommand(
-      "insertText",
-      false,
-      event.clipboardData.getData("text/plain"),
-    );
+    document.execCommand("insertText", false, pastedText);
   });
   editor.addEventListener("pointerdown", (event) => {
     if (

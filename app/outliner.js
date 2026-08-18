@@ -348,11 +348,50 @@ function createPreviousGraphBlock(block) {
   return previous;
 }
 
+// Turn a pasted web address into a Markdown link when text is selected.
+export function pasteUrlOverSelection(
+  event,
+  field = event.target,
+  beforePaste = null,
+) {
+  if (
+    typeof field?.selectionStart !== "number" ||
+    field.selectionStart === field.selectionEnd
+  )
+    return false;
+  const text = event.clipboardData?.getData("text/plain")?.trim() || "";
+  try {
+    const url = new URL(text);
+    if (!/^https?:$/.test(url.protocol)) return false;
+  } catch {
+    return false;
+  }
+  const start = field.selectionStart;
+  const end = field.selectionEnd;
+  const label = field.value
+    .slice(start, end)
+    .replace(/\\/g, "\\\\")
+    .replace(/([\[\]])/g, "\\$1");
+  beforePaste?.();
+  event.preventDefault();
+  field.setRangeText(`[${label}](${text})`, start, end, "end");
+  field.dispatchEvent(
+    new InputEvent("input", { bubbles: true, inputType: "insertText" }),
+  );
+  return true;
+}
+
 // Clipboard trees receive fresh IDs before insertion to prevent reference collisions.
 export function pasteGraphBlockTree(event) {
   const field = event.target.closest?.(".graph-block-editor");
   const block = session.activeGraphBlock?.block;
   if (!field || !block || field !== session.activeGraphBlock.field) return false;
+  const snapshot = outlinerDependencies.captureVimSnapshot(field);
+  if (pasteUrlOverSelection(event, field)) {
+    outlinerDependencies.pushVimSnapshot(vimUndoStack, snapshot);
+    vimRedoStack.length = 0;
+    return true;
+  }
   const text = event.clipboardData?.getData("text/plain") || "";
   const firstLine = text.replace(/^\s*\n+/, "").split("\n", 1)[0];
   if (!/^\s*[-+*](?:\s|$)/.test(firstLine)) return false;
@@ -366,7 +405,6 @@ export function pasteGraphBlockTree(event) {
   const location = outlinerDependencies.graphBlockLocation(block.id);
   if (!location) return false;
   event.preventDefault();
-  const snapshot = outlinerDependencies.captureVimSnapshot(field);
   const replace = !field.value.trim() || selectedAll;
   if (replace) {
     location.blocks.splice(location.index, 1, ...pasted);
