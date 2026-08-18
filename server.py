@@ -934,8 +934,16 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
             if not exists and not payload.get("create"):
                 raise FileNotFoundError(target.name)
             expected = payload.get("expectedRevision")
-            if exists and not payload.get("force") and expected is not None and target.stat().st_mtime_ns != int(expected):
-                raise FileExistsError("revision conflict")
+            if exists and payload.get("create"):
+                # A cached client may believe a page is new even though another
+                # device created it in the meantime. Never turn create into a
+                # blind overwrite, including for legacy clients that sent force.
+                raise FileExistsError("file already exists")
+            if exists and not payload.get("force"):
+                # Missing revisions are not permission to overwrite an existing
+                # file. Only an explicit, user-confirmed force write may do that.
+                if expected is None or target.stat().st_mtime_ns != int(expected):
+                    raise FileExistsError("revision conflict")
             relative = target.relative_to(self.graph).as_posix()  # type: ignore[arg-type]
             if self.watcher:
                 with self.watcher.lock:

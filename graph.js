@@ -1436,8 +1436,9 @@
           ? formatJournalDate(journalDateValue, "yyyy-MM-dd")
           : null,
       };
+      // Creation must be exclusive on the server. A page with the same path may
+      // have been created by another device since this replica was cached.
       await this.writePage(page, options.content || "- ", {
-        force: true,
         create: true,
       });
       this.pages.push(page);
@@ -1451,7 +1452,10 @@
         path: page.path,
         content,
         expectedRevision: page.lastModified,
-        force: Boolean(options.force),
+        // A force confirmation is valid only for the immediate request. If the
+        // request is queued, re-check its base revision when reconnecting so a
+        // later edit from another device cannot be overwritten silently.
+        force: false,
         create: Boolean(options.create),
       };
       if (this.offline) {
@@ -1513,7 +1517,9 @@
                 path: operation.path,
                 content: operation.content,
                 expectedRevision: operation.expectedRevision,
-                force: operation.force,
+                // Never replay a persisted operation as a blind overwrite,
+                // including operations cached by older application versions.
+                force: false,
                 create: operation.create,
                 clientId: this.clientId,
               }),

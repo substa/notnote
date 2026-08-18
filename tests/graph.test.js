@@ -358,12 +358,19 @@ test('queues and synchronizes remote page writes while offline', async () => {
   const page = { title: 'Offline', name: 'offline.md', path: 'pages/offline.md', folder: 'pages', content: '', lastModified: null };
   store.pages = [page];
 
-  await store.writePage(page, '- local', { create: true });
+  await store.writePage(page, '- local', { create: true, force: true });
   assert.equal(store.pendingCount, 1);
   assert.equal(store.cache.operations[0].create, true);
+  assert.equal(store.cache.operations[0].force, false);
   assert.equal(store.cache.files.files[0].content, '- local');
 
-  store.api = async () => ({ revision: '2' });
+  // Even a force flag persisted by an older client must not be replayed.
+  store.cache.operations[0].force = true;
+  store.api = async (path, options) => {
+    assert.equal(path, '/file');
+    assert.equal(JSON.parse(options.body).force, false);
+    return { revision: '2' };
+  };
   assert.equal(await store.syncPending(), 1);
   assert.equal(store.pendingCount, 0);
   assert.equal(page.lastModified, '2');

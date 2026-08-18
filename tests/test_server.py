@@ -109,6 +109,45 @@ class AssetReferenceTests(unittest.TestCase):
         self.assertFalse(content_mentions_asset("- no attachment here", path))
 
 
+class GraphWriteConflictTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.graph = Path(self.temporary.name).resolve()
+        (self.graph / "pages").mkdir()
+        self.target = self.graph / "pages" / "shared.md"
+        self.target.write_text("- current\n", encoding="utf-8")
+        self.handler = object.__new__(NotnoteHandler)
+        self.handler.server = SimpleNamespace(
+            graph=self.graph,
+            watcher=None,
+            mutation_lock=threading.Lock(),
+        )
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_rejects_create_when_another_device_already_created_the_page(self):
+        with self.assertRaises(FileExistsError):
+            self.handler.write_markdown(
+                self.target,
+                {"content": "- stale\n", "create": True, "force": True},
+            )
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "- current\n")
+
+    def test_rejects_existing_file_write_without_a_revision(self):
+        with self.assertRaises(FileExistsError):
+            self.handler.write_markdown(self.target, {"content": "- stale\n"})
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "- current\n")
+
+    def test_accepts_a_write_with_the_current_revision(self):
+        revision = self.target.stat().st_mtime_ns
+        self.handler.write_markdown(
+            self.target,
+            {"content": "- updated\n", "expectedRevision": str(revision)},
+        )
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "- updated\n")
+
+
 class GitOptionalTests(unittest.TestCase):
     def test_reports_git_as_optional_when_executable_is_missing(self):
         with tempfile.TemporaryDirectory() as temporary:
