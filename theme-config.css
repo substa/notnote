@@ -235,15 +235,20 @@ body {
 .references .reference-result {
   color: var(--text);
 }
+.graph-block-content code,
 .reference-result code {
   padding: 0.12em 0.3em;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--code);
+  background: var(--code-block-bg);
+  color: var(--text);
   font-family: var(--mono);
   font-size: 0.86em;
 }
+.graph-block-content .graph-code-block code,
 .reference-result .graph-code-block code {
   padding: 0;
+  border: 0;
   background: none;
   font: inherit;
 }
