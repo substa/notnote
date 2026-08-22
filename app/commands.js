@@ -565,8 +565,8 @@ function blockResultCommands(query) {
 }
 
 function recentPageCommands(query) {
-  const searchQuery = query.toLowerCase();
-  const normalizedQuery = query && Graph.normalizePage(query);
+  const searchQuery = Graph.normalizeSearch(query);
+  const normalizedQuery = query && searchQuery;
   const seen = new Set();
   const settings = currentSettings();
   const storedPages = (settings.recentGraphPages || [])
@@ -591,10 +591,10 @@ function recentPageCommands(query) {
       const results = [];
       const aliasKeys = new Set();
       for (const alias of aliases) {
-        const key = Graph.normalizePage(alias);
+        const key = Graph.normalizeSearch(alias);
         if (
           !key.includes(normalizedQuery) ||
-          key === Graph.normalizePage(page.title) ||
+          key === Graph.normalizeSearch(page.title) ||
           aliasKeys.has(key)
         )
           continue;
@@ -606,7 +606,7 @@ function recentPageCommands(query) {
           rank: pageMatchRank(alias, normalizedQuery),
         });
       }
-      if (Graph.normalizePage(page.title).includes(normalizedQuery))
+      if (Graph.normalizeSearch(page.title).includes(normalizedQuery))
         results.push({
           page,
           aliases,
@@ -637,7 +637,9 @@ function recentPageCommands(query) {
     run: () => loadGraphPage(page),
   }));
   const documents = getStoredDocs()
-    .filter((doc) => !query || doc.name.toLowerCase().includes(searchQuery))
+    .filter(
+      (doc) => !query || Graph.normalizeSearch(doc.name).includes(searchQuery),
+    )
     .map((doc) => ({
       label: doc.name,
       shortcut: relativeDate(doc.updated),
@@ -741,7 +743,7 @@ function renderPaletteGraphStats() {
 
 function renderCommandList() {
   const rawQuery = $("#commandInput").value.trim();
-  const query = rawQuery.toLowerCase();
+  const query = Graph.normalizeSearch(rawQuery);
   const searching = Boolean(query);
   const commandQuery = query.replace(/^\/+/, "");
   const slashQuery = query.startsWith("/");
@@ -752,9 +754,9 @@ function renderCommandList() {
             .toLowerCase()
             .split(/\s+/)
             .some((alias) => alias.startsWith(query))
-        : `${command.label} ${command.keywords || ""}`
-            .toLowerCase()
-            .includes(commandQuery),
+        : Graph.normalizeSearch(
+            `${command.label} ${command.keywords || ""}`,
+          ).includes(commandQuery),
   );
   const blockItems = slashQuery ? [] : blockResultCommands(query);
   const allPageItems = slashQuery ? [] : recentPageCommands(rawQuery);
@@ -1135,11 +1137,11 @@ function pageDirectoryLetter(title) {
 // Paginate each alphabetic group independently so all section counts remain visible.
 export function renderPageDirectory() {
   const pages = allDirectoryPages();
-  const query = $("#pageDirectoryFilter").value.trim().toLocaleLowerCase();
+  const query = Graph.normalizeSearch($("#pageDirectoryFilter").value);
   const filtered = pages.filter((page) => {
     const aliases = session.graphIndex?.aliasesForPage(page) || [];
     return [page.title, ...aliases].some((value) =>
-      value.toLocaleLowerCase().includes(query),
+      Graph.normalizeSearch(value).includes(query),
     );
   });
   const groups = new Map();

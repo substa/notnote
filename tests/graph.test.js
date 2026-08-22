@@ -230,6 +230,23 @@ test('indexes page and block references', () => {
   assert.equal(index.search('referenced').length, 1);
 });
 
+test('ignores diacritics in search without changing page identity', () => {
+  const index = new Graph.GraphIndex([
+    {
+      title: 'Niccolò',
+      path: 'pages/niccolo-accented.md',
+      content: '- Incontrare Niccolo domani\n- Chiamare Niccolò oggi\n',
+    },
+  ]);
+
+  assert.equal(Graph.normalizeSearch('Niccolò'), 'niccolo');
+  assert.equal(Graph.normalizeSearch('Niccolo'), 'niccolo');
+  assert.notEqual(Graph.normalizePage('Niccolò'), Graph.normalizePage('Niccolo'));
+  assert.equal(index.search('Niccolò').length, 2);
+  assert.equal(index.search('Niccolo').length, 2);
+  assert.equal(index.resolvePage('Niccolo'), undefined);
+});
+
 test('finds references to pages that have no Markdown file yet', () => {
   const index = new Graph.GraphIndex([
     { title: 'Meeting', path: 'pages/meeting.md', content: '- Meeting with [[Nome Cognome]]\n' }

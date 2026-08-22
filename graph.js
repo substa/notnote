@@ -26,6 +26,9 @@
       .replace(/\s+/g, " ")
       .toLocaleLowerCase();
   };
+  // Search keys ignore diacritics without changing page identity or link resolution.
+  const normalizeSearch = (value) =>
+    normalizePage(value).normalize("NFD").replace(/\p{M}/gu, "");
   // Resolve relative assets lexically; storage adapters enforce the final graph boundary.
   function resolveAssetPath(reference, fromFolder = "pages") {
     const raw = String(reference || "")
@@ -1897,13 +1900,13 @@
     }
 
     search(query, limit = 30) {
-      const needle = normalizePage(query);
+      const needle = normalizeSearch(query);
       if (!needle) return [];
       const results = [];
       for (const page of this.allPages()) {
         const document = this.documents.get(page.path);
         for (const { block } of flattenBlocks(document?.blocks)) {
-          if (normalizePage(block.content).includes(needle))
+          if (normalizeSearch(block.content).includes(needle))
             results.push({ page, block, content: block.content });
           if (results.length >= limit) return results;
         }
@@ -1971,6 +1974,7 @@
     trailingTagQuery,
     pageTitle,
     normalizePage,
+    normalizeSearch,
     resolveAssetPath,
     assetReferenceCorpus,
     contentMentionsAsset,

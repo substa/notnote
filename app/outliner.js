@@ -667,16 +667,17 @@ function graphTemplates() {
   return Graph.templatesFromDocument(document);
 }
 export function pageMatchRank(value, query) {
-  const normalized = Graph.normalizePage(value);
-  if (!query || normalized === query) return 0;
-  if (normalized.startsWith(query)) return 1;
+  const normalized = Graph.normalizeSearch(value);
+  const needle = Graph.normalizeSearch(query);
+  if (!needle || normalized === needle) return 0;
+  if (normalized.startsWith(needle)) return 1;
   if (
     normalized
       .split(/[\s/._-]+/)
-      .some((part) => part.startsWith(query))
+      .some((part) => part.startsWith(needle))
   )
     return 2;
-  return normalized.includes(query) ? 3 : Infinity;
+  return normalized.includes(needle) ? 3 : Infinity;
 }
 function graphPageMatchRank(page, query) {
   return Math.min(
@@ -688,7 +689,7 @@ function graphPageMatchRank(page, query) {
 }
 function pageAutocompleteResults(title) {
   if (!session.graphIndex || title.length < 2) return [];
-  const query = Graph.normalizePage(title);
+  const query = Graph.normalizeSearch(title);
   return session.graphIndex
     .pageSuggestions()
     .map((page) => ({ page, rank: graphPageMatchRank(page, query) }))
@@ -704,7 +705,7 @@ function pageAutocompleteResults(title) {
 }
 function blockAutocompleteResults(query) {
   if (!session.graphIndex) return [];
-  const needle = Graph.normalizePage(query);
+  const needle = Graph.normalizeSearch(query);
   const results = [];
   for (const page of session.graphIndex.allPages()) {
     const current = page.path === state.graphPage?.path;
@@ -719,7 +720,7 @@ function blockAutocompleteResults(query) {
         .trim();
       if (
         !content ||
-        (needle && !Graph.normalizePage(content).includes(needle))
+        (needle && !Graph.normalizeSearch(content).includes(needle))
       )
         continue;
       results.push({
@@ -768,12 +769,12 @@ export function showGraphAutocomplete(field) {
     const [name = "", ...remainder] = rawQuery.split(/\s+/);
     const typedCommand = `/${name.toLowerCase()}`;
     if (name.toLowerCase() === "template") {
-      const query = Graph.normalizePage(remainder.join(" "));
+      const query = Graph.normalizeSearch(remainder.join(" "));
       autocompleteItems = graphTemplates()
         .filter(
           (template) =>
             !query ||
-            Graph.normalizePage(template.name).includes(query),
+            Graph.normalizeSearch(template.name).includes(query),
         )
         .slice(0, 12)
         .map((template) => ({
@@ -794,7 +795,11 @@ export function showGraphAutocomplete(field) {
   } else if (wikiMatch && session.graphIndex) {
     const title = wikiMatch[1].trim();
     const matches = pageAutocompleteResults(title);
-    const exactMatch = title && session.graphIndex.resolvePage(title);
+    const exactMatch =
+      title &&
+      matches.some(
+        (page) => graphPageMatchRank(page, Graph.normalizeSearch(title)) === 0,
+      );
     autocompleteItems =
       title.length >= 2 && !exactMatch
         ? [{ title, create: true }, ...matches].slice(0, 12)
