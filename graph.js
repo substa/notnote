@@ -1134,6 +1134,7 @@
       this.offline = false;
       this.pendingCount = 0;
       this.cache = null;
+      this.saveRecoveryDraft = saveDraft;
     }
 
     static fromCache(cached, baseUrl = "/api/graph") {
@@ -1544,6 +1545,51 @@
       this.offline = false;
       await this.persistCache();
       return completed;
+    }
+
+    pendingOperation() {
+      return this.cache?.operations?.[0] || null;
+    }
+
+    // Resolve the operation that stopped sync. A rejected local write is either
+    // explicitly forced to the server or moved to recovery drafts before the
+    // queue advances, so one conflict cannot permanently block this replica.
+    async resolvePendingConflict({ overwrite = false } = {}) {
+      const operation = this.pendingOperation();
+      if (!operation || operation.type !== "write")
+        throw new Error("No pending page conflict is available");
+      let revision = null;
+      if (overwrite) {
+        const payload = await this.api("/file", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: operation.path,
+            content: operation.content,
+            expectedRevision: operation.expectedRevision,
+            force: true,
+            // An exclusive offline create may conflict with a page created on
+            // another device. The user's confirmation permits replacing it.
+            create: false,
+            clientId: this.clientId,
+          }),
+        });
+        revision = payload.revision;
+        this.cacheFile(operation.path, operation.content, revision);
+        const page = this.pages.find((item) => item.path === operation.path);
+        if (page) page.lastModified = revision;
+      } else {
+        // A non-null marker also makes an offline create conflict with the now
+        // existing server page when the recovery draft is opened later.
+        await this.saveRecoveryDraft(operation.path, {
+          content: operation.content,
+          modified: operation.expectedRevision || "offline-create-conflict",
+        });
+      }
+      this.cache.operations.shift();
+      this.offline = false;
+      await this.persistCache();
+      return { path: operation.path, overwrite, revision };
     }
 
     async renamePage(page, title, content) {

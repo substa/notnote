@@ -394,6 +394,52 @@ test('queues and synchronizes remote page writes while offline', async () => {
   assert.equal(store.offline, false);
 });
 
+test('moves a rejected offline write to recovery so synchronization can continue', async () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: { files: [], config: {} },
+    operations: [{ type: 'write', path: 'pages/conflict.md', content: '- local', expectedRevision: '1', create: false }],
+  };
+  store.offline = true;
+  store.pendingCount = 1;
+  store.persistCache = async function () { this.pendingCount = this.cache.operations.length; };
+  let recovered = null;
+  store.saveRecoveryDraft = async (path, draft) => { recovered = { path, ...draft }; };
+
+  const result = await store.resolvePendingConflict();
+
+  assert.equal(result.overwrite, false);
+  assert.deepEqual(recovered, { path: 'pages/conflict.md', content: '- local', modified: '1' });
+  assert.equal(store.pendingCount, 0);
+  assert.equal(store.offline, false);
+});
+
+test('overwrites a conflicting server page only after explicit resolution', async () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: { files: [], config: {} },
+    operations: [{ type: 'write', path: 'pages/conflict.md', content: '- local', expectedRevision: null, create: true }],
+  };
+  store.offline = true;
+  store.pendingCount = 1;
+  store.persistCache = async function () { this.pendingCount = this.cache.operations.length; };
+  store.api = async (path, options) => {
+    const payload = JSON.parse(options.body);
+    assert.equal(path, '/file');
+    assert.equal(payload.force, true);
+    assert.equal(payload.create, false);
+    return { revision: '3' };
+  };
+
+  const result = await store.resolvePendingConflict({ overwrite: true });
+
+  assert.equal(result.revision, '3');
+  assert.equal(store.pendingCount, 0);
+  assert.equal(store.cache.files.files[0].revision, '3');
+});
+
 test('applies journal formats imported into graph settings', () => {
   const store = new Graph.GraphStore({ name: 'Notes' });
   store.applySettings({ journal: { fileNameFormat: 'yyyy-MM-dd', pageTitleFormat: 'MMMM do, yyyy' } });

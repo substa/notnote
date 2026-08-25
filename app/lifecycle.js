@@ -300,7 +300,29 @@ export async function syncOfflineGraph() {
         ? `Syncing ${pending} changes…`
         : "Checking connection…";
       await store.reconnect();
-      const synced = await store.syncPending();
+      let synced = 0;
+      let recovered = 0;
+      while (store.pendingCount) {
+        const before = store.pendingCount;
+        try {
+          synced += await store.syncPending();
+        } catch (error) {
+          // A queued conflict otherwise remains first forever and prevents every
+          // later server refresh. Resolve it without discarding the local text.
+          if (error.name !== "ConflictError" || !store.pendingOperation())
+            throw error;
+          synced += before - store.pendingCount;
+          const operation = store.pendingOperation();
+          const overwrite = confirm(
+            `The server version of ${operation.path} changed while this device was offline.\n\n` +
+              "Press OK to overwrite the server with this device's version. " +
+              "Press Cancel to keep the server version and preserve this device's version as a recovery draft.",
+          );
+          await store.resolvePendingConflict({ overwrite });
+          if (overwrite) synced++;
+          else recovered++;
+        }
+      }
       if (session.graphStore !== store) return false;
       await loadGraphSettings();
       const pages = await store.scan();
@@ -324,6 +346,10 @@ export async function syncOfflineGraph() {
       saveState.textContent = "Ready";
       if (synced)
         toast(`Synced ${synced} offline change${synced === 1 ? "" : "s"}`);
+      if (recovered)
+        toast(
+          `${recovered} conflicting change${recovered === 1 ? " was" : "s were"} preserved as a recovery draft. Reopen the page to review it.`,
+        );
       return true;
     } catch (error) {
       saveState.textContent = store.offline
