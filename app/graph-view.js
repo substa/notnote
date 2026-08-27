@@ -334,9 +334,18 @@ function graphMixedMarkdownHtml(value, block) {
 }
 
 function graphDisplayContent(block) {
+  const source = String(block.content || "");
+  const completedAt = Graph.propertiesFrom(source)["completed-at"] || "";
+  const completedDate = /^(DONE|CANCELED|CANCELLED)(?:\s+|$)/.test(source)
+    ? taskCompletionDate({ completedAt })
+    : "";
+  const scheduling = completedDate
+    ? source.match(/^\s*(SCHEDULED|DEADLINE):\s*<([^>]+)>\s*$/m)
+    : null;
+  const scheduledDate = scheduling?.[2].slice(0, 10) || "";
   let activeFence = null;
   let activeOrgQuote = false;
-  const visible = String(block.content || "")
+  const visible = source
     .split("\n")
     .filter((line) => {
       if (!activeFence && !activeOrgQuote && orgQuoteOpening(line)) {
@@ -359,11 +368,19 @@ function graphDisplayContent(block) {
       // Logseq properties are metadata. Keep every key/value in the Markdown
       // source, but do not render unsupported or custom properties in the page.
       if (/^\s*[\w-]+::\s*/.test(line)) return false;
+      // Completed tasks render scheduling and completion metadata together below.
+      if (scheduling && line === scheduling[0]) return false;
       return true;
     })
     .join("\n")
     .trimEnd();
-  return graphMixedMarkdownHtml(visible, block);
+  const rendered = graphMixedMarkdownHtml(visible, block);
+  if (!completedDate) return rendered;
+  const scheduled =
+    scheduling && scheduledDate !== completedDate
+      ? `<button type="button" class="graph-scheduled" data-scheduled-block="${escapeHtml(block.id)}" data-scheduled-date="${escapeHtml(scheduledDate)}" title="Edit ${scheduling[1] === "DEADLINE" ? "deadline" : "scheduled date"}"><span class="graph-scheduled-icon" aria-hidden="true"></span>${escapeHtml(scheduling[2])}</button>`
+      : "";
+  return `${rendered}<span class="graph-task-dates">${scheduled}<time class="task-completed-at" datetime="${completedDate}" title="Completed on ${completedDate}">${completedDate}</time></span>`;
 }
 
 export function resolveGraphContentAssets(content, page) {
@@ -691,14 +708,28 @@ export function taskTextHtml(task) {
   return graphTextHtml(task.text || "Untitled task", task.block);
 }
 
-function taskRowsHtml(items) {
+function taskCompletionDate(task) {
+  const timestamp = taskTimestamp(task.completedAt);
+  if (!timestamp) return "";
+  const completed = new Date(timestamp);
+  return Number.isNaN(completed.getTime())
+    ? ""
+    : Graph.formatJournalDate(completed, "yyyy-MM-dd");
+}
+
+function taskRowsHtml(items, showCompletionDate = false) {
   const today = taskDate();
   return items.length
     ? items
         .map((task) => {
           const overdue =
             !task.done && task.scheduled && task.scheduled < today;
-          return `<div class="task-dashboard-item${task.done ? " task-dashboard-item-done" : ""}"><button type="button" class="task-dashboard-state task-dashboard-state-${task.done ? "done" : task.progress ? "doing" : "todo"}" data-task-checkbox-page="${escapeHtml(task.page.path)}" data-task-checkbox-block="${escapeHtml(task.block.id)}" aria-label="Task status: ${escapeHtml(task.marker)}. Click to complete; Shift-click or hold to mark in progress" title="${escapeHtml(task.marker)} · click to complete · Shift-click or hold for DOING"></button><div class="task-dashboard-item-main" data-task-page="${escapeHtml(task.page.path)}" data-task-block-id="${escapeHtml(task.block.id)}" role="button" tabindex="0"><span>${overdue ? '<i class="task-overdue-icon" title="Overdue" aria-label="Overdue">!</i>' : ""}${taskTextHtml(task)}</span>${task.scheduled ? `<time class="graph-scheduled" data-scheduled-page="${escapeHtml(task.page.path)}" data-scheduled-block="${escapeHtml(task.block.id)}" data-scheduled-date="${escapeHtml(task.scheduled)}" title="Edit scheduled date"><span class="graph-scheduled-icon" aria-hidden="true"></span>${escapeHtml(task.scheduled)}</time>` : ""}</div></div>`;
+          const completedDate = showCompletionDate
+            ? taskCompletionDate(task)
+            : "";
+          const showScheduledDate =
+            task.scheduled && task.scheduled !== completedDate;
+          return `<div class="task-dashboard-item${task.done ? " task-dashboard-item-done" : ""}"><button type="button" class="task-dashboard-state task-dashboard-state-${task.done ? "done" : task.progress ? "doing" : "todo"}" data-task-checkbox-page="${escapeHtml(task.page.path)}" data-task-checkbox-block="${escapeHtml(task.block.id)}" aria-label="Task status: ${escapeHtml(task.marker)}. Click to complete; Shift-click or hold to mark in progress" title="${escapeHtml(task.marker)} · click to complete · Shift-click or hold for DOING"></button><div class="task-dashboard-item-main" data-task-page="${escapeHtml(task.page.path)}" data-task-block-id="${escapeHtml(task.block.id)}" role="button" tabindex="0"><span class="task-dashboard-text">${overdue ? '<i class="task-overdue-icon" title="Overdue" aria-label="Overdue">!</i>' : ""}${taskTextHtml(task)}</span><span class="task-dashboard-dates">${showScheduledDate ? `<time class="graph-scheduled" data-scheduled-page="${escapeHtml(task.page.path)}" data-scheduled-block="${escapeHtml(task.block.id)}" data-scheduled-date="${escapeHtml(task.scheduled)}" title="Edit scheduled date"><span class="graph-scheduled-icon" aria-hidden="true"></span>${escapeHtml(task.scheduled)}</time>` : ""}${completedDate ? `<time class="task-completed-at" datetime="${completedDate}" title="Completed on ${completedDate}">${completedDate}</time>` : ""}</span></div></div>`;
         })
         .join("")
     : '<p class="task-dashboard-empty">No tasks</p>';
@@ -858,6 +889,16 @@ export function scrollOnThisDayIntoView() {
     });
 }
 
+function journalCompletedTasksElement(date) {
+  const tasks = graphTasks()
+    .filter((task) => task.done && taskCompletionDate(task) === date)
+    .sort(compareCompletedTasks);
+  const details = document.createElement("details");
+  details.className = "journal-completed-tasks";
+  details.innerHTML = `<summary>Completed tasks · ${tasks.length}</summary>${taskRowsHtml(tasks)}`;
+  return details;
+}
+
 function journalTaskPanelElement() {
   const overview = taskOverviewGroups();
   taskCompletedTodayIds();
@@ -951,7 +992,7 @@ function taskDashboardElement() {
       remaining > 0
         ? `<button type="button" class="task-dashboard-more" data-task-more="${key}">Show next ${Math.min(10, remaining)}</button>`
         : "";
-    return `<details class="task-dashboard-group"${collapsed.has(key) && !state.taskExpanded[key] ? "" : " open"}><summary><span>${label}</span><span class="task-section-count">${tasks.length}</span></summary>${taskRowsHtml(tasks.slice(0, limit))}${more}</details>`;
+    return `<details class="task-dashboard-group"${collapsed.has(key) && !state.taskExpanded[key] ? "" : " open"}><summary><span>${label}</span><span class="task-section-count">${tasks.length}</span></summary>${taskRowsHtml(tasks.slice(0, limit), key === "done")}${more}</details>`;
   };
   dashboard.innerHTML = sections.map(sectionHtml).join("");
   return dashboard;
@@ -1157,6 +1198,14 @@ export function renderGraphPage() {
     : "";
   graphViewDependencies.renderPageHierarchy();
   graphViewDependencies.renderReferences();
+  if (state.graphPage?.journalDate && !state.graphZoomId) {
+    const completed = journalCompletedTasksElement(
+      state.graphPage.journalDate,
+    );
+    const linkedReferences = references.querySelector("details");
+    if (linkedReferences) linkedReferences.after(completed);
+    else references.prepend(completed);
+  }
 }
 
 export function resizeGraphEditor(field) {

@@ -2070,6 +2070,18 @@ body.image-lightbox-open {
 .graph-scheduled-icon:after {
   right: 2px;
 }
+.graph-task-dates {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0 23px;
+  color: var(--muted);
+  font: 500 10px/1 var(--ui);
+  letter-spacing: 0.01em;
+}
+.graph-task-dates .graph-scheduled {
+  margin-left: 0;
+}
 .graph-page-ref:hover,
 .graph-block-ref:hover,
 .graph-tag:hover {
@@ -2280,6 +2292,9 @@ body.image-lightbox-open {
 .journal-more {
   height: 40vh;
   min-height: 260px;
+}
+.references .journal-completed-tasks .task-dashboard-item:first-of-type {
+  margin-top: 12px;
 }
 .journal-task-summary {
   display: flex;
@@ -2855,9 +2870,9 @@ body.image-lightbox-open {
 }
 .task-dashboard-item-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 3px;
   width: 100%;
   min-width: 0;
   padding: 0;
@@ -2875,7 +2890,7 @@ body.image-lightbox-open {
 .journal-task-panel .task-dashboard-item-done .task-dashboard-item-main {
   color: var(--muted);
 }
-.journal-task-panel .task-dashboard-item-done .task-dashboard-item-main > span {
+.journal-task-panel .task-dashboard-item-done .task-dashboard-text {
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
@@ -2909,9 +2924,19 @@ body.image-lightbox-open {
     transform: translate(0, -50%);
   }
 }
+.task-dashboard-dates {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
 .task-dashboard-item time {
   color: var(--muted);
   font-size: 10px;
+}
+.task-completed-at:before {
+  content: "✓";
+  margin-right: 4px;
 }
 .task-dashboard-item small {
   grid-column: 2/-1;
