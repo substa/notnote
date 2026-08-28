@@ -325,31 +325,6 @@ test('preserves assets mentioned through raw, encoded, or non-standard links', (
   assert.equal(Graph.contentMentionsAsset('- no attachment here', path), false);
 });
 
-test('three-way merges independent edits and rejects overlapping edits', () => {
-  const base = '- first\n- shared\n- last\n';
-  const merged = Graph.mergeText(
-    base,
-    '- first locally\n- shared\n- last\n',
-    '- first\n- shared\n- last remotely\n',
-  );
-  assert.equal(merged.content, '- first locally\n- shared\n- last remotely\n');
-  assert.equal(merged.conflicts, false);
-  const multiple = Graph.mergeText(
-    base,
-    '- first locally\n- shared\n- last locally\n',
-    '- first\n- shared remotely\n- last\n',
-  );
-  assert.equal(
-    multiple.content,
-    '- first locally\n- shared remotely\n- last locally\n',
-  );
-  assert.equal(multiple.conflicts, false);
-  assert.equal(
-    Graph.mergeText(base, '- local\n- shared\n- last\n', '- remote\n- shared\n- last\n').conflicts,
-    true,
-  );
-});
-
 test('refreshes a remote replica from a revision manifest', async () => {
   const store = new Graph.RemoteGraphStore({ name: 'Remote' });
   store.cache = {
@@ -458,6 +433,7 @@ test('queues and synchronizes remote page writes while offline', async () => {
   assert.equal(store.pendingCount, 1);
   assert.equal(store.cache.operations[0].create, true);
   assert.equal(store.cache.operations[0].force, false);
+  assert.equal(store.cache.operations[0].safetyVersion, 2);
   assert.equal(store.cache.files.files[0].content, '- local');
 
   // Even a force flag persisted by an older client must not be replayed.
@@ -473,37 +449,83 @@ test('queues and synchronizes remote page writes while offline', async () => {
   assert.equal(store.offline, false);
 });
 
-test('automatically merges an offline write when server edits are independent', async () => {
+test('quarantines legacy pending writes instead of replaying them', async () => {
   const store = new Graph.RemoteGraphStore({ name: 'Remote' });
   store.cache = {
     status: { name: 'Remote' },
     files: { files: [], config: {} },
     operations: [{
-      type: 'write',
-      path: 'pages/shared.md',
-      baseContent: '- first\n- last\n',
-      content: '- first locally\n- last\n',
-      expectedRevision: '1',
-      create: false,
+      type: 'write', path: 'journals/old.md', content: '- stale', expectedRevision: '1', create: false,
+    }],
+  };
+  store.pendingCount = 1;
+  store.readRecoveryDraft = async () => null;
+  let recovered = null;
+  store.saveRecoveryDraft = async (path, draft) => { recovered = { path, ...draft }; };
+  store.persistCache = async function () { this.pendingCount = this.cache.operations.length; };
+
+  assert.equal(await store.quarantineLegacyWrites(), 1);
+  assert.deepEqual(recovered, {
+    path: 'journals/old.md', content: '- stale', modified: '1',
+  });
+  assert.equal(store.pendingCount, 0);
+});
+
+test('keeps current-version pending writes for revision-checked replay', async () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: { files: [], config: {} },
+    operations: [{
+      type: 'write', path: 'journals/current.md', content: '- local', expectedRevision: '1', create: false, safetyVersion: 2,
+    }],
+  };
+  store.pendingCount = 1;
+  store.persistCache = async function () { this.pendingCount = this.cache.operations.length; };
+
+  assert.equal(await store.quarantineLegacyWrites(), 0);
+  assert.equal(store.pendingCount, 1);
+});
+
+test('refreshes authoritative text even when a local overlay has the same revision', async () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: { files: [{ path: 'journals/today.md', content: '- stale local', revision: '7' }], config: {} },
+    operations: [],
+  };
+  store.offline = false;
+  store.persistCache = async () => {};
+  store.api = async () => ({ content: '- authoritative server', revision: '7' });
+
+  await store.refreshAuthoritative(['journals/today.md']);
+
+  assert.equal(store.cache.files.files[0].content, '- authoritative server');
+});
+
+test('never auto-merges or force-replays a conflicting queued write', async () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: { files: [], config: {} },
+    operations: [{
+      type: 'write', path: 'pages/conflict.md', content: '- stale local', expectedRevision: '1', create: false, safetyVersion: 2,
     }],
   };
   store.offline = false;
   store.pendingCount = 1;
   store.persistCache = async function () { this.pendingCount = this.cache.operations.length; };
-  let written = null;
+  let requests = 0;
   store.api = async (path, options) => {
-    if (path.startsWith('/file?'))
-      return { content: '- first\n- last remotely\n', revision: '2' };
-    const payload = JSON.parse(options.body);
-    if (payload.expectedRevision === '1') throw new Graph.ConflictError();
-    written = payload;
-    return { revision: '3' };
+    requests++;
+    assert.equal(path, '/file');
+    assert.equal(JSON.parse(options.body).force, false);
+    throw new Graph.ConflictError();
   };
 
-  assert.equal(await store.syncPending(), 1);
-  assert.equal(written.content, '- first locally\n- last remotely\n');
-  assert.equal(written.expectedRevision, '2');
-  assert.equal(store.pendingCount, 0);
+  await assert.rejects(() => store.syncPending(), { name: 'ConflictError' });
+  assert.equal(requests, 1);
+  assert.equal(store.pendingCount, 1);
 });
 
 test('moves a rejected offline write to recovery so synchronization can continue', async () => {
@@ -525,31 +547,6 @@ test('moves a rejected offline write to recovery so synchronization can continue
   assert.deepEqual(recovered, { path: 'pages/conflict.md', content: '- local', modified: '1' });
   assert.equal(store.pendingCount, 0);
   assert.equal(store.offline, false);
-});
-
-test('overwrites a conflicting server page only after explicit resolution', async () => {
-  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
-  store.cache = {
-    status: { name: 'Remote' },
-    files: { files: [], config: {} },
-    operations: [{ type: 'write', path: 'pages/conflict.md', content: '- local', expectedRevision: null, create: true }],
-  };
-  store.offline = true;
-  store.pendingCount = 1;
-  store.persistCache = async function () { this.pendingCount = this.cache.operations.length; };
-  store.api = async (path, options) => {
-    const payload = JSON.parse(options.body);
-    assert.equal(path, '/file');
-    assert.equal(payload.force, true);
-    assert.equal(payload.create, false);
-    return { revision: '3' };
-  };
-
-  const result = await store.resolvePendingConflict({ overwrite: true });
-
-  assert.equal(result.revision, '3');
-  assert.equal(store.pendingCount, 0);
-  assert.equal(store.cache.files.files[0].revision, '3');
 });
 
 test('applies journal formats imported into graph settings', () => {

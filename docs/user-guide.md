@@ -138,7 +138,7 @@ After a server graph has been opened successfully at least once, notnote keeps a
 
 The footer reports **Offline** and the number of pending changes. Synchronization starts when the browser reports that it is online, when the PWA returns to the foreground, or when its window receives focus. This does not rely on Background Sync, which is unavailable on iOS; the PWA must be open or resumed for synchronization to run.
 
-Each queued write retains the server revision and text from which it started. If that revision is still current, the change is uploaded automatically. If another client changed a separate text range, notnote performs a three-way merge and saves both changes. Overlapping edits still ask whether to overwrite the server version. Choosing Cancel keeps the server version and moves the local text to a recovery draft, allowing the rest of the graph to refresh and the synchronization queue to continue. Reopen that page to review the recovered draft and decide whether to save it. Page renaming, deletion, and attachment upload currently require a connection.
+Each queued write retains the server revision from which it started. Before replaying current-version writes, notnote refreshes the authoritative server replica. If a revision is still current, the change is uploaded automatically. If it changed, synchronization never offers or performs a whole-file overwrite: the server version remains authoritative and the local text is moved to a recovery draft. Queued writes created by older application versions are also quarantined as recovery drafts instead of being replayed. Reopen that page to review the recovered text before deciding whether to save it explicitly. Page renaming, deletion, and attachment upload currently require a connection.
 
 The Service Worker caches the application shell and, on demand, graph attachments that have been opened successfully. Cached images, documents, audio, and video remain available offline; media range requests are served from the complete cached file. In **Settings → General**, **Offline attachment cache** sets the storage limit for the current device (200 MB by default). The cache also keeps at most 100 files and removes the oldest entries when either limit is exceeded. Reducing the setting trims the existing cache immediately. Storage remains best-effort because the browser, particularly iOS, can enforce a smaller quota or reclaim site data. Notes and pending operations are stored separately in IndexedDB rather than by indiscriminately caching graph API responses.
 
@@ -402,7 +402,7 @@ Possible states include:
 - **Conflict**;
 - **Save failed**.
 
-If a file changes externally while local edits are pending, notnote does not overwrite it automatically. A manual save lets the user explicitly choose whether to replace the disk version.
+If a file changes externally while local edits are pending, notnote does not overwrite it automatically. A manual save lets the user explicitly choose whether to replace the disk version. Before `server.py` accepts an explicit forced replacement, it stores the previous authoritative file under `.notnote/recovery/` and retains the newest 100 server recovery snapshots.
 
 ## LAN synchronization
 

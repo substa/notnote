@@ -682,131 +682,6 @@
     }
   }
 
-  // Merge the common case of independent edits without ever guessing when the
-  // edited ranges overlap. The unchanged base is retained so queued writes can
-  // use the same three-way merge after an offline interval.
-  function textChange(baseLines, targetLines) {
-    let start = 0;
-    while (
-      start < baseLines.length &&
-      start < targetLines.length &&
-      baseLines[start] === targetLines[start]
-    )
-      start++;
-    let baseEnd = baseLines.length;
-    let targetEnd = targetLines.length;
-    while (
-      baseEnd > start &&
-      targetEnd > start &&
-      baseLines[baseEnd - 1] === targetLines[targetEnd - 1]
-    ) {
-      baseEnd--;
-      targetEnd--;
-    }
-    return { start, end: baseEnd, lines: targetLines.slice(start, targetEnd) };
-  }
-
-  function lineChanges(baseLines, targetLines) {
-    const cells = baseLines.length * targetLines.length;
-    if (cells > 1_000_000) return [textChange(baseLines, targetLines)];
-    const lengths = Array.from(
-      { length: baseLines.length + 1 },
-      () => new Uint32Array(targetLines.length + 1),
-    );
-    for (let baseIndex = baseLines.length - 1; baseIndex >= 0; baseIndex--)
-      for (let targetIndex = targetLines.length - 1; targetIndex >= 0; targetIndex--)
-        lengths[baseIndex][targetIndex] =
-          baseLines[baseIndex] === targetLines[targetIndex]
-            ? lengths[baseIndex + 1][targetIndex + 1] + 1
-            : Math.max(
-                lengths[baseIndex + 1][targetIndex],
-                lengths[baseIndex][targetIndex + 1],
-              );
-    const changes = [];
-    let baseIndex = 0;
-    let targetIndex = 0;
-    let change = null;
-    const finish = () => {
-      if (change) changes.push(change);
-      change = null;
-    };
-    while (baseIndex < baseLines.length || targetIndex < targetLines.length) {
-      if (
-        baseIndex < baseLines.length &&
-        targetIndex < targetLines.length &&
-        baseLines[baseIndex] === targetLines[targetIndex]
-      ) {
-        finish();
-        baseIndex++;
-        targetIndex++;
-      } else if (
-        targetIndex < targetLines.length &&
-        (baseIndex === baseLines.length ||
-          lengths[baseIndex][targetIndex + 1] >
-            lengths[baseIndex + 1][targetIndex])
-      ) {
-        change ||= { start: baseIndex, end: baseIndex, lines: [] };
-        change.lines.push(targetLines[targetIndex++]);
-      } else {
-        change ||= { start: baseIndex, end: baseIndex, lines: [] };
-        baseIndex++;
-        change.end = baseIndex;
-      }
-    }
-    finish();
-    return changes;
-  }
-
-  function changesOverlap(left, right) {
-    const leftInsert = left.start === left.end;
-    const rightInsert = right.start === right.end;
-    if (leftInsert && rightInsert) return left.start === right.start;
-    if (leftInsert)
-      return left.start > right.start && left.start < right.end;
-    if (rightInsert)
-      return right.start > left.start && right.start < left.end;
-    return left.start < right.end && right.start < left.end;
-  }
-
-  function sameChange(left, right) {
-    return (
-      left.start === right.start &&
-      left.end === right.end &&
-      left.lines.length === right.lines.length &&
-      left.lines.every((line, index) => line === right.lines[index])
-    );
-  }
-
-  function mergeText(base, local, remote) {
-    base = String(base ?? "");
-    local = String(local ?? "");
-    remote = String(remote ?? "");
-    if (local === remote) return { content: local, conflicts: false };
-    if (local === base) return { content: remote, conflicts: false };
-    if (remote === base) return { content: local, conflicts: false };
-    const baseLines = base.split("\n");
-    const localChanges = lineChanges(baseLines, local.split("\n"));
-    const remoteChanges = lineChanges(baseLines, remote.split("\n"));
-    for (const localChange of localChanges)
-      for (const remoteChange of remoteChanges)
-        if (
-          changesOverlap(localChange, remoteChange) &&
-          !sameChange(localChange, remoteChange)
-        )
-          return { content: local, conflicts: true };
-    const changes = [...localChanges];
-    for (const remoteChange of remoteChanges)
-      if (!changes.some((localChange) => sameChange(localChange, remoteChange)))
-        changes.push(remoteChange);
-    const merged = [...baseLines];
-    changes
-      .sort((a, b) => b.start - a.start || b.end - a.end)
-      .forEach((change) =>
-        merged.splice(change.start, change.end - change.start, ...change.lines),
-      );
-    return { content: merged.join("\n"), conflicts: false };
-  }
-
   // Keep direct filesystem access behind the same interface as remote graph storage.
   class GraphStore {
     constructor(handle) {
@@ -1289,6 +1164,7 @@
       this.pendingCount = 0;
       this.cache = null;
       this.saveRecoveryDraft = saveDraft;
+      this.readRecoveryDraft = getDraft;
     }
 
     static fromCache(cached, baseUrl = "/api/graph") {
@@ -1349,7 +1225,9 @@
         message = (await response.json()).error || message;
       } catch {}
       if (response.status === 409) throw new ConflictError(message);
-      throw new Error(message);
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
     }
 
     async reconnect() {
@@ -1473,6 +1351,55 @@
         this.pendingCount = operations.length;
       }
       return this.cache.operations || [];
+    }
+
+    pendingWritePaths() {
+      return [...new Set(
+        (this.cache?.operations || [])
+          .filter((operation) => operation.type === "write")
+          .map((operation) => operation.path),
+      )];
+    }
+
+    async quarantineLegacyWrites() {
+      let recovered = 0;
+      for (const operation of [...(this.cache?.operations || [])]) {
+        if (
+          operation.type !== "write" ||
+          operation.create ||
+          operation.safetyVersion === 2
+        )
+          continue;
+        const draft = await this.readRecoveryDraft(operation.path).catch(() => null);
+        if (!draft)
+          await this.saveRecoveryDraft(operation.path, {
+            content: operation.content,
+            modified: operation.expectedRevision || "legacy-offline-change",
+          });
+        await this.completeOperation(operation);
+        recovered++;
+      }
+      await this.persistCache();
+      return recovered;
+    }
+
+    async refreshAuthoritative(paths) {
+      if (this.offline || !paths?.length) return;
+      for (const path of [...new Set(paths)]) {
+        try {
+          const payload = await this.api(`/file?path=${encodeURIComponent(path)}`);
+          this.cacheFile(path, payload.content, payload.revision);
+          const file = this.cache.files.files.find((item) => item.path === path);
+          const authoritative = file && this.pageFromFile(file);
+          const page = this.pages.find((item) => item.path === path);
+          if (page) Object.assign(page, authoritative);
+          else if (authoritative) this.pages.push(authoritative);
+        } catch (error) {
+          if (!/\(404\)|graph file not found/i.test(error.message || ""))
+            throw error;
+        }
+      }
+      await this.persistCache();
     }
 
     async completeOperation(operation) {
@@ -1702,7 +1629,12 @@
       if (!payload) throw new Error("No offline graph copy is available");
       if (!this.settingsConfig)
         this.config = { ...defaultJournalConfig, ...(payload.config || {}) };
-      if (this.lastRefreshChanged === false && this.pages.length)
+      const samePageSet =
+        this.pages.length === payload.files.length &&
+        this.pages.every((page) =>
+          payload.files.some((file) => file.path === page.path),
+        );
+      if (this.lastRefreshChanged === false && samePageSet)
         return this.pages;
       this.pages = payload.files
         .filter((file) => !nestedGraphCopy(file.path))
@@ -1755,6 +1687,7 @@
         content,
         baseContent: page.content,
         expectedRevision: page.lastModified,
+        safetyVersion: 2,
         // A force confirmation is valid only for the immediate request. If the
         // request is queued, re-check its base revision when reconnecting so a
         // later edit from another device cannot be overwritten silently.
@@ -1787,36 +1720,6 @@
         this.broadcast({ type: "changed", path: page.path, revision: payload.revision });
         return page;
       } catch (error) {
-        if (
-          error.name === "ConflictError" &&
-          !options.force &&
-          !options.create &&
-          typeof operation.baseContent === "string"
-        ) {
-          const fresh = await this.freshFile(page);
-          const merged = mergeText(operation.baseContent, content, fresh.content);
-          if (!merged.conflicts) {
-            const payload = await this.api("/file", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                path: page.path,
-                content: merged.content,
-                expectedRevision: fresh.lastModified,
-                force: false,
-                create: false,
-                clientId: this.clientId,
-              }),
-            });
-            page.content = merged.content;
-            page.lastModified = payload.revision;
-            page.autoMerged = true;
-            this.cacheFile(page.path, merged.content, payload.revision);
-            await this.persistCache();
-            this.broadcast({ type: "changed", path: page.path, revision: payload.revision });
-            return page;
-          }
-        }
         if (!this.networkFailure(error)) throw error;
         page.content = content;
         this.cacheFile(page.path, content, page.lastModified);
@@ -1844,56 +1747,33 @@
               }),
             });
           } else if (operation.type === "write") {
-            let content = operation.content;
-            let expectedRevision = operation.expectedRevision;
-            let payload;
-            try {
-              payload = await this.api("/file", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  path: operation.path,
-                  content,
-                  expectedRevision,
-                  // Never replay a persisted operation as a blind overwrite,
-                  // including operations cached by older application versions.
-                  force: false,
-                  create: operation.create,
-                  clientId: this.clientId,
-                }),
-              });
-            } catch (error) {
-              if (
-                error.name !== "ConflictError" ||
-                operation.create ||
-                typeof operation.baseContent !== "string"
-              )
-                throw error;
-              const fresh = await this.api(`/file?path=${encodeURIComponent(operation.path)}`);
-              const merged = mergeText(operation.baseContent, content, fresh.content);
-              if (merged.conflicts) throw error;
-              content = merged.content;
-              expectedRevision = fresh.revision;
-              payload = await this.api("/file", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  path: operation.path,
-                  content,
-                  expectedRevision,
-                  force: false,
-                  create: false,
-                  clientId: this.clientId,
-                }),
-              });
-            }
-            this.cacheFile(operation.path, content, payload.revision);
+            const payload = await this.api("/file", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                path: operation.path,
+                content: operation.content,
+                expectedRevision: operation.expectedRevision,
+                // Persisted operations are never blind or automatic force writes.
+                force: false,
+                create: operation.create,
+                clientId: this.clientId,
+              }),
+            });
+            this.cacheFile(operation.path, operation.content, payload.revision);
+            const file = this.cache.files.files.find(
+              (item) => item.path === operation.path,
+            );
+            const updated = file && this.pageFromFile(file);
             const page = this.pages.find((item) => item.path === operation.path);
-            if (page) {
-              page.content = content;
-              page.lastModified = payload.revision;
-            }
-            this.broadcast({ type: "changed", path: operation.path, revision: payload.revision });
+            if (page) Object.assign(page, updated);
+            else if (updated) this.pages.push(updated);
+            this.pages.sort((a, b) => a.title.localeCompare(b.title));
+            this.broadcast({
+              type: "changed",
+              path: operation.path,
+              revision: payload.revision,
+            });
           }
           await this.completeOperation(operation);
           completed++;
@@ -1912,45 +1792,22 @@
       return this.cache?.operations?.[0] || null;
     }
 
-    // Resolve the operation that stopped sync. A rejected local write is either
-    // explicitly forced to the server or moved to recovery drafts before the
-    // queue advances, so one conflict cannot permanently block this replica.
-    async resolvePendingConflict({ overwrite = false } = {}) {
+    // A queued conflict is never a force-write opportunity. Preserve its local
+    // text, advance the queue, and leave the authoritative server file intact.
+    async resolvePendingConflict() {
       const operation = this.pendingOperation();
       if (!operation || operation.type !== "write")
         throw new Error("No pending page conflict is available");
-      let revision = null;
-      if (overwrite) {
-        const payload = await this.api("/file", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: operation.path,
-            content: operation.content,
-            expectedRevision: operation.expectedRevision,
-            force: true,
-            // An exclusive offline create may conflict with a page created on
-            // another device. The user's confirmation permits replacing it.
-            create: false,
-            clientId: this.clientId,
-          }),
-        });
-        revision = payload.revision;
-        this.cacheFile(operation.path, operation.content, revision);
-        const page = this.pages.find((item) => item.path === operation.path);
-        if (page) page.lastModified = revision;
-      } else {
-        // A non-null marker also makes an offline create conflict with the now
-        // existing server page when the recovery draft is opened later.
-        await this.saveRecoveryDraft(operation.path, {
-          content: operation.content,
-          modified: operation.expectedRevision || "offline-create-conflict",
-        });
-      }
+      // A non-null marker also makes an offline create conflict with the now
+      // existing server page when the recovery draft is opened later.
+      await this.saveRecoveryDraft(operation.path, {
+        content: operation.content,
+        modified: operation.expectedRevision || "offline-create-conflict",
+      });
       await this.completeOperation(operation);
       this.offline = false;
       await this.persistCache();
-      return { path: operation.path, overwrite, revision };
+      return { path: operation.path, overwrite: false, revision: null };
     }
 
     async renamePage(page, title, content) {
@@ -2367,7 +2224,6 @@
     RemoteGraphStore,
     GraphIndex,
     ConflictError,
-    mergeText,
     parseDocument,
     serializeDocument,
     flattenBlocks,

@@ -956,6 +956,25 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
             raise
         return target.stat().st_mtime_ns
 
+    def preserve_force_recovery(self, target: Path, relative: str) -> Path:
+        """Keep the authoritative text before an explicitly forced overwrite."""
+        assert self.graph
+        recovery_root = self.graph / ".notnote" / "recovery"
+        safe_path = relative.replace("/", "__")
+        recovery = recovery_root / f"{time.time_ns()}-{safe_path}"
+        self.atomic_write(recovery, target.read_text(encoding="utf-8"))
+        try:
+            snapshots = sorted(
+                (path for path in recovery_root.iterdir() if path.is_file()),
+                key=lambda path: path.name,
+                reverse=True,
+            )
+            for obsolete in snapshots[100:]:
+                obsolete.unlink()
+        except OSError:
+            pass
+        return recovery
+
     def write_markdown(self, target: Path, payload: dict) -> tuple[bool, str, int]:
         with self.server.mutation_lock:  # type: ignore[attr-defined]
             exists = target.exists()
@@ -973,6 +992,8 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
                 if expected is None or target.stat().st_mtime_ns != int(expected):
                     raise FileExistsError("revision conflict")
             relative = target.relative_to(self.graph).as_posix()  # type: ignore[arg-type]
+            if exists and payload.get("force"):
+                self.preserve_force_recovery(target, relative)
             if self.watcher:
                 with self.watcher.lock:
                     revision = self.atomic_write(target, str(payload.get("content", "")))

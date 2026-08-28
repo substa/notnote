@@ -297,6 +297,14 @@ async function refreshRemoteEvent(event) {
       renderGraphPage();
       updateStats();
       saveState.textContent = "Reloaded";
+    } else if (state.journalMode && result.page) {
+      // Continuous journals can display several pages at once. Keep all visible
+      // days live, not only the currently editable one.
+      session.journalDocuments.set(
+        result.page.path,
+        Graph.parseDocument(result.page.content),
+      );
+      renderGraphPage();
     } else renderReferences();
     session.remoteRefreshPending = false;
   } catch {
@@ -350,48 +358,59 @@ export async function syncOfflineGraph(lockHeld = false) {
   remoteSyncing = (async () => {
     try {
       await store.reloadPendingOperations?.();
+      const pendingPaths = store.pendingWritePaths?.() || [];
+      const migrated = await store.quarantineLegacyWrites?.();
       const pending = store.pendingCount || 0;
       saveState.textContent = pending
         ? `Syncing ${pending} changes…`
         : "Checking connection…";
       await store.reconnect();
+      await loadGraphSettings();
+      // Refresh the authoritative replica before replaying any current-version
+      // operation. A stale queue must never define what the user sees at startup.
+      await store.refreshAuthoritative?.(pendingPaths);
+      await store.scan();
       let synced = 0;
-      let recovered = 0;
+      let recovered = migrated || 0;
       while (store.pendingCount) {
         const before = store.pendingCount;
         try {
           synced += await store.syncPending();
         } catch (error) {
-          // A queued conflict otherwise remains first forever and prevents every
-          // later server refresh. Resolve it without discarding the local text.
-          if (error.name !== "ConflictError" || !store.pendingOperation())
+          // Startup/background synchronization never offers a whole-file force
+          // overwrite. Preserve local text and continue with the server version.
+          const operation = store.pendingOperation();
+          if (
+            !operation ||
+            operation.type !== "write" ||
+            (error.name !== "ConflictError" && error.status !== 404)
+          )
             throw error;
           synced += before - store.pendingCount;
-          const operation = store.pendingOperation();
-          const overwrite = confirm(
-            `The server version of ${operation.path} changed while this device was offline.\n\n` +
-              "Press OK to overwrite the server with this device's version. " +
-              "Press Cancel to keep the server version and preserve this device's version as a recovery draft.",
-          );
-          await store.resolvePendingConflict({ overwrite });
-          if (overwrite) synced++;
-          else recovered++;
+          await store.resolvePendingConflict();
+          recovered++;
         }
       }
       if (session.graphStore !== store) return false;
-      await loadGraphSettings();
       const pages = await store.scan();
       if (session.graphStore !== store) return false;
-      if (pending || store.lastRefreshChanged !== false) {
+      if (pendingPaths.length || store.lastRefreshChanged !== false) {
         session.graphIndex = new Graph.GraphIndex(pages);
         session.journalDocuments.clear();
         const current =
           state.graphPage &&
           pages.find((page) => page.path === state.graphPage.path);
-        if (current && !state.dirty) {
+        if (current && (!state.dirty || pendingPaths.length)) {
           state.graphPage = current;
           state.graphDocument = Graph.parseDocument(current.content);
           restoreGraphCollapse();
+          if (pendingPaths.length) {
+            // The local text is already represented by a queued operation or
+            // recovery draft. Show the authoritative server page after sync.
+            state.dirty = false;
+            state.graphConflict = false;
+            app.classList.remove("dirty");
+          }
           if (state.journalMode)
             session.journalDocuments.set(current.path, state.graphDocument);
           renderGraphPage();

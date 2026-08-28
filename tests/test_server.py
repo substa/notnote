@@ -166,6 +166,17 @@ class GraphWriteConflictTests(unittest.TestCase):
         )
         self.assertEqual(self.target.read_text(encoding="utf-8"), "- updated\n")
 
+    def test_forced_write_preserves_the_authoritative_version(self):
+        self.handler.write_markdown(
+            self.target,
+            {"content": "- forced\n", "force": True},
+        )
+
+        recoveries = list((self.graph / ".notnote" / "recovery").iterdir())
+        self.assertEqual(len(recoveries), 1)
+        self.assertEqual(recoveries[0].read_text(encoding="utf-8"), "- current\n")
+        self.assertEqual(self.target.read_text(encoding="utf-8"), "- forced\n")
+
 
 class GitOptionalTests(unittest.TestCase):
     def test_reports_git_as_optional_when_executable_is_missing(self):
