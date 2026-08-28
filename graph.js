@@ -6,7 +6,7 @@
   "use strict";
 
   const DB_NAME = "notnote-graph-v1";
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const HANDLE_KEY = "last-graph";
   const markdownFile = /\.(md|markdown)$/i;
   const nestedGraphCopy = (path) =>
@@ -174,6 +174,8 @@
           db.createObjectStore("drafts");
         if (!db.objectStoreNames.contains("remoteGraphs"))
           db.createObjectStore("remoteGraphs");
+        if (!db.objectStoreNames.contains("remoteOperations"))
+          db.createObjectStore("remoteOperations");
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -207,6 +209,33 @@
     dbRequest("remoteGraphs", "readonly", (store) => store.get(key));
   const saveRemoteGraph = (key, value) =>
     dbRequest("remoteGraphs", "readwrite", (store) => store.put(value, key));
+  const getRemoteOperations = (key) =>
+    dbRequest("remoteOperations", "readonly", (store) => store.get(key));
+  const saveRemoteOperations = (key, value) =>
+    dbRequest("remoteOperations", "readwrite", (store) => store.put(value, key));
+
+  // A read-modify-write in one IndexedDB transaction prevents two same-origin
+  // windows from replacing each other's offline operation queue.
+  function updateRemoteOperations(key, update) {
+    return new Promise((resolve, reject) => {
+      openDatabase().then((db) => {
+        const transaction = db.transaction("remoteOperations", "readwrite");
+        const store = transaction.objectStore("remoteOperations");
+        const request = store.get(key);
+        let value;
+        request.onsuccess = () => {
+          value = update(request.result || []);
+          store.put(value, key);
+        };
+        request.onerror = () => reject(request.error);
+        transaction.oncomplete = () => {
+          db.close();
+          resolve(value);
+        };
+        transaction.onerror = () => reject(transaction.error);
+      }, reject);
+    });
+  }
 
   function indentationWidth(value) {
     let width = 0;
@@ -651,6 +680,131 @@
       super(message);
       this.name = "ConflictError";
     }
+  }
+
+  // Merge the common case of independent edits without ever guessing when the
+  // edited ranges overlap. The unchanged base is retained so queued writes can
+  // use the same three-way merge after an offline interval.
+  function textChange(baseLines, targetLines) {
+    let start = 0;
+    while (
+      start < baseLines.length &&
+      start < targetLines.length &&
+      baseLines[start] === targetLines[start]
+    )
+      start++;
+    let baseEnd = baseLines.length;
+    let targetEnd = targetLines.length;
+    while (
+      baseEnd > start &&
+      targetEnd > start &&
+      baseLines[baseEnd - 1] === targetLines[targetEnd - 1]
+    ) {
+      baseEnd--;
+      targetEnd--;
+    }
+    return { start, end: baseEnd, lines: targetLines.slice(start, targetEnd) };
+  }
+
+  function lineChanges(baseLines, targetLines) {
+    const cells = baseLines.length * targetLines.length;
+    if (cells > 1_000_000) return [textChange(baseLines, targetLines)];
+    const lengths = Array.from(
+      { length: baseLines.length + 1 },
+      () => new Uint32Array(targetLines.length + 1),
+    );
+    for (let baseIndex = baseLines.length - 1; baseIndex >= 0; baseIndex--)
+      for (let targetIndex = targetLines.length - 1; targetIndex >= 0; targetIndex--)
+        lengths[baseIndex][targetIndex] =
+          baseLines[baseIndex] === targetLines[targetIndex]
+            ? lengths[baseIndex + 1][targetIndex + 1] + 1
+            : Math.max(
+                lengths[baseIndex + 1][targetIndex],
+                lengths[baseIndex][targetIndex + 1],
+              );
+    const changes = [];
+    let baseIndex = 0;
+    let targetIndex = 0;
+    let change = null;
+    const finish = () => {
+      if (change) changes.push(change);
+      change = null;
+    };
+    while (baseIndex < baseLines.length || targetIndex < targetLines.length) {
+      if (
+        baseIndex < baseLines.length &&
+        targetIndex < targetLines.length &&
+        baseLines[baseIndex] === targetLines[targetIndex]
+      ) {
+        finish();
+        baseIndex++;
+        targetIndex++;
+      } else if (
+        targetIndex < targetLines.length &&
+        (baseIndex === baseLines.length ||
+          lengths[baseIndex][targetIndex + 1] >
+            lengths[baseIndex + 1][targetIndex])
+      ) {
+        change ||= { start: baseIndex, end: baseIndex, lines: [] };
+        change.lines.push(targetLines[targetIndex++]);
+      } else {
+        change ||= { start: baseIndex, end: baseIndex, lines: [] };
+        baseIndex++;
+        change.end = baseIndex;
+      }
+    }
+    finish();
+    return changes;
+  }
+
+  function changesOverlap(left, right) {
+    const leftInsert = left.start === left.end;
+    const rightInsert = right.start === right.end;
+    if (leftInsert && rightInsert) return left.start === right.start;
+    if (leftInsert)
+      return left.start > right.start && left.start < right.end;
+    if (rightInsert)
+      return right.start > left.start && right.start < left.end;
+    return left.start < right.end && right.start < left.end;
+  }
+
+  function sameChange(left, right) {
+    return (
+      left.start === right.start &&
+      left.end === right.end &&
+      left.lines.length === right.lines.length &&
+      left.lines.every((line, index) => line === right.lines[index])
+    );
+  }
+
+  function mergeText(base, local, remote) {
+    base = String(base ?? "");
+    local = String(local ?? "");
+    remote = String(remote ?? "");
+    if (local === remote) return { content: local, conflicts: false };
+    if (local === base) return { content: remote, conflicts: false };
+    if (remote === base) return { content: local, conflicts: false };
+    const baseLines = base.split("\n");
+    const localChanges = lineChanges(baseLines, local.split("\n"));
+    const remoteChanges = lineChanges(baseLines, remote.split("\n"));
+    for (const localChange of localChanges)
+      for (const remoteChange of remoteChanges)
+        if (
+          changesOverlap(localChange, remoteChange) &&
+          !sameChange(localChange, remoteChange)
+        )
+          return { content: local, conflicts: true };
+    const changes = [...localChanges];
+    for (const remoteChange of remoteChanges)
+      if (!changes.some((localChange) => sameChange(localChange, remoteChange)))
+        changes.push(remoteChange);
+    const merged = [...baseLines];
+    changes
+      .sort((a, b) => b.start - a.start || b.end - a.end)
+      .forEach((change) =>
+        merged.splice(change.start, change.end - change.start, ...change.lines),
+      );
+    return { content: merged.join("\n"), conflicts: false };
   }
 
   // Keep direct filesystem access behind the same interface as remote graph storage.
@@ -1150,7 +1304,12 @@
       baseUrl = "/api/graph",
       { preferCache = false } = {},
     ) {
-      const cached = await getRemoteGraph(baseUrl).catch(() => null);
+      let cached = await getRemoteGraph(baseUrl).catch(() => null);
+      const sharedOperations = await getRemoteOperations(baseUrl).catch(() => undefined);
+      if (cached && Array.isArray(sharedOperations))
+        cached = { ...cached, operations: sharedOperations };
+      else if (cached?.operations?.length)
+        await saveRemoteOperations(baseUrl, cached.operations).catch(() => {});
       if (preferCache) {
         const store = RemoteGraphStore.fromCache(cached, baseUrl);
         if (store) return store;
@@ -1265,13 +1424,8 @@
       };
     }
 
-    async queueOperation(operation) {
-      this.cache = this.cache || {
-        status: { enabled: true, name: this.name, config: this.config },
-        files: { files: [], config: this.config },
-        operations: [],
-      };
-      const operations = [...(this.cache.operations || [])];
+    mergedOperations(existing, operation) {
+      const operations = [...(existing || [])];
       if (operation.type === "write") {
         const index = operations.findIndex(
           (item) => item.type === "write" && item.path === operation.path,
@@ -1279,19 +1433,58 @@
         if (index >= 0)
           operation = {
             ...operation,
+            // Replacing an operation gets a new identity so a concurrent sync
+            // cannot acknowledge an older payload and remove this newer one.
+            id: operation.id,
+            baseContent: operations[index].baseContent ?? operation.baseContent,
             expectedRevision: operations[index].expectedRevision,
             create: operations[index].create || operation.create,
           };
         if (index >= 0) operations.splice(index, 1);
       } else if (operation.type === "settings") {
         for (let index = operations.length - 1; index >= 0; index--)
-          if (operations[index].type === "settings")
-            operations.splice(index, 1);
+          if (operations[index].type === "settings") operations.splice(index, 1);
       }
-      operations.push({ ...operation, queuedAt: Date.now() });
+      operations.push({ ...operation, id: operation.id || newId(), queuedAt: Date.now() });
+      return operations;
+    }
+
+    async queueOperation(operation) {
+      this.cache = this.cache || {
+        status: { enabled: true, name: this.name, config: this.config },
+        files: { files: [], config: this.config },
+        operations: [],
+      };
+      let operations = this.mergedOperations(this.cache.operations, operation);
+      if (typeof indexedDB !== "undefined")
+        operations = await updateRemoteOperations(this.baseUrl, (existing) =>
+          this.mergedOperations(existing, operation),
+        ).catch(() => operations);
       this.cache.operations = operations;
       this.offline = true;
       await this.persistCache();
+    }
+
+    async reloadPendingOperations() {
+      if (typeof indexedDB === "undefined") return this.cache?.operations || [];
+      const operations = await getRemoteOperations(this.baseUrl).catch(() => null);
+      if (Array.isArray(operations)) {
+        this.cache.operations = operations;
+        this.pendingCount = operations.length;
+      }
+      return this.cache.operations || [];
+    }
+
+    async completeOperation(operation) {
+      const matches = (item) =>
+        operation.id ? item.id === operation.id : item === operation ||
+          (item.type === operation.type && item.path === operation.path && item.queuedAt === operation.queuedAt);
+      let operations = (this.cache.operations || []).filter((item) => !matches(item));
+      if (typeof indexedDB !== "undefined")
+        operations = await updateRemoteOperations(this.baseUrl, (existing) =>
+          existing.filter((item) => !matches(item)),
+        ).catch(() => operations);
+      this.cache.operations = operations;
     }
 
     applySettings(settings = {}) {
@@ -1353,13 +1546,29 @@
 
     subscribe(listener) {
       const events = new EventSource(`${this.baseUrl}/events`);
+      const channel =
+        typeof BroadcastChannel === "function"
+          ? new BroadcastChannel(`notnote:${this.baseUrl}`)
+          : null;
+      const receive = (event) => {
+        if (event?.clientId !== this.clientId) listener(event);
+      };
       events.onmessage = (message) => {
         try {
-          const event = JSON.parse(message.data);
-          if (event.clientId !== this.clientId) listener(event);
+          receive(JSON.parse(message.data));
         } catch {}
       };
-      return () => events.close();
+      if (channel) channel.onmessage = (message) => receive(message.data);
+      this.broadcastChannel = channel;
+      return () => {
+        events.close();
+        channel?.close();
+        if (this.broadcastChannel === channel) this.broadcastChannel = null;
+      };
+    }
+
+    broadcast(event) {
+      this.broadcastChannel?.postMessage({ ...event, clientId: this.clientId });
     }
 
     pageFromFile(file) {
@@ -1389,12 +1598,99 @@
       };
     }
 
+    async refreshFromManifest() {
+      const manifest = await this.api("/manifest");
+      const cachedFiles = this.cache?.files?.files || [];
+      const cachedByPath = new Map(cachedFiles.map((file) => [file.path, file]));
+      const manifestPaths = new Set(manifest.files.map((file) => file.path));
+      const changed = manifest.files.filter(
+        (file) => String(cachedByPath.get(file.path)?.revision) !== String(file.revision),
+      );
+      const configChanged =
+        JSON.stringify(this.cache?.files?.config || {}) !==
+        JSON.stringify(manifest.config || {});
+      this.lastRefreshChanged =
+        configChanged ||
+        changed.length > 0 ||
+        cachedFiles.some((file) => !manifestPaths.has(file.path));
+      const refreshed = new Map(
+        cachedFiles
+          .filter((file) => manifestPaths.has(file.path))
+          .map((file) => [file.path, file]),
+      );
+      const results = await settleInBatches(changed, async (file) => {
+        try {
+          const payload = await this.api(`/file?path=${encodeURIComponent(file.path)}`);
+          refreshed.set(file.path, {
+            ...file,
+            content: payload.content,
+            revision: payload.revision,
+          });
+        } catch (error) {
+          if (!/\(404\)|graph file not found/i.test(error.message || ""))
+            throw error;
+          refreshed.delete(file.path);
+        }
+      });
+      const failed = results.find((result) => result.status === "rejected");
+      if (failed) throw failed.reason;
+      this.cache.files = {
+        ...manifest,
+        files: [...refreshed.values()].sort((a, b) => a.path.localeCompare(b.path)),
+      };
+      await this.persistCache();
+      return this.cache.files;
+    }
+
+    async refreshEvent(event) {
+      if (!event?.path || String(event.type).startsWith("asset"))
+        return { ignored: true };
+      if (event.type === "deleted") {
+        this.lastRefreshChanged = true;
+        this.cacheFile(event.path, "", null, true);
+        this.pages = this.pages.filter((page) => page.path !== event.path);
+        await this.persistCache();
+        return { removed: event.path };
+      }
+      if (event.oldPath) {
+        this.cacheFile(event.oldPath, "", null, true);
+        this.pages = this.pages.filter((page) => page.path !== event.oldPath);
+      }
+      const payload = await this.api(`/file?path=${encodeURIComponent(event.path)}`);
+      this.lastRefreshChanged = true;
+      const file = {
+        path: event.path,
+        name: event.path.split("/").at(-1),
+        folder: event.path.includes("/") ? event.path.split("/").slice(0, -1).join("/") : "",
+        content: payload.content,
+        revision: payload.revision,
+      };
+      this.cacheFile(file.path, file.content, file.revision);
+      const page = this.pageFromFile(file);
+      this.pages = [...this.pages.filter((item) => item.path !== page.path), page]
+        .sort((a, b) => a.title.localeCompare(b.title));
+      await this.persistCache();
+      return { page, oldPath: event.oldPath || null };
+    }
+
     async scan() {
       let payload;
       if (this.offline) payload = this.cache?.files;
       else {
         try {
-          payload = await this.api("/files");
+          if (this.cache?.files?.files) {
+            try {
+              payload = await this.refreshFromManifest();
+            } catch (error) {
+              if (!/\(404\)|unknown graph endpoint/i.test(error.message || ""))
+                throw error;
+              payload = await this.api("/files");
+              this.lastRefreshChanged = true;
+            }
+          } else {
+            payload = await this.api("/files");
+            this.lastRefreshChanged = true;
+          }
           this.cache.files = payload;
           await this.persistCache();
         } catch (error) {
@@ -1406,6 +1702,8 @@
       if (!payload) throw new Error("No offline graph copy is available");
       if (!this.settingsConfig)
         this.config = { ...defaultJournalConfig, ...(payload.config || {}) };
+      if (this.lastRefreshChanged === false && this.pages.length)
+        return this.pages;
       this.pages = payload.files
         .filter((file) => !nestedGraphCopy(file.path))
         .map((file) => this.pageFromFile(file))
@@ -1455,6 +1753,7 @@
         type: "write",
         path: page.path,
         content,
+        baseContent: page.content,
         expectedRevision: page.lastModified,
         // A force confirmation is valid only for the immediate request. If the
         // request is queued, re-check its base revision when reconnecting so a
@@ -1485,8 +1784,39 @@
         page.lastModified = payload.revision;
         this.cacheFile(page.path, content, payload.revision);
         await this.persistCache();
+        this.broadcast({ type: "changed", path: page.path, revision: payload.revision });
         return page;
       } catch (error) {
+        if (
+          error.name === "ConflictError" &&
+          !options.force &&
+          !options.create &&
+          typeof operation.baseContent === "string"
+        ) {
+          const fresh = await this.freshFile(page);
+          const merged = mergeText(operation.baseContent, content, fresh.content);
+          if (!merged.conflicts) {
+            const payload = await this.api("/file", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                path: page.path,
+                content: merged.content,
+                expectedRevision: fresh.lastModified,
+                force: false,
+                create: false,
+                clientId: this.clientId,
+              }),
+            });
+            page.content = merged.content;
+            page.lastModified = payload.revision;
+            page.autoMerged = true;
+            this.cacheFile(page.path, merged.content, payload.revision);
+            await this.persistCache();
+            this.broadcast({ type: "changed", path: page.path, revision: payload.revision });
+            return page;
+          }
+        }
         if (!this.networkFailure(error)) throw error;
         page.content = content;
         this.cacheFile(page.path, content, page.lastModified);
@@ -1514,27 +1844,58 @@
               }),
             });
           } else if (operation.type === "write") {
-            const payload = await this.api("/file", {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                path: operation.path,
-                content: operation.content,
-                expectedRevision: operation.expectedRevision,
-                // Never replay a persisted operation as a blind overwrite,
-                // including operations cached by older application versions.
-                force: false,
-                create: operation.create,
-                clientId: this.clientId,
-              }),
-            });
-            this.cacheFile(operation.path, operation.content, payload.revision);
-            const page = this.pages.find(
-              (item) => item.path === operation.path,
-            );
-            if (page) page.lastModified = payload.revision;
+            let content = operation.content;
+            let expectedRevision = operation.expectedRevision;
+            let payload;
+            try {
+              payload = await this.api("/file", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  path: operation.path,
+                  content,
+                  expectedRevision,
+                  // Never replay a persisted operation as a blind overwrite,
+                  // including operations cached by older application versions.
+                  force: false,
+                  create: operation.create,
+                  clientId: this.clientId,
+                }),
+              });
+            } catch (error) {
+              if (
+                error.name !== "ConflictError" ||
+                operation.create ||
+                typeof operation.baseContent !== "string"
+              )
+                throw error;
+              const fresh = await this.api(`/file?path=${encodeURIComponent(operation.path)}`);
+              const merged = mergeText(operation.baseContent, content, fresh.content);
+              if (merged.conflicts) throw error;
+              content = merged.content;
+              expectedRevision = fresh.revision;
+              payload = await this.api("/file", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  path: operation.path,
+                  content,
+                  expectedRevision,
+                  force: false,
+                  create: false,
+                  clientId: this.clientId,
+                }),
+              });
+            }
+            this.cacheFile(operation.path, content, payload.revision);
+            const page = this.pages.find((item) => item.path === operation.path);
+            if (page) {
+              page.content = content;
+              page.lastModified = payload.revision;
+            }
+            this.broadcast({ type: "changed", path: operation.path, revision: payload.revision });
           }
-          this.cache.operations.shift();
+          await this.completeOperation(operation);
           completed++;
           await this.persistCache();
         } catch (error) {
@@ -1586,7 +1947,7 @@
           modified: operation.expectedRevision || "offline-create-conflict",
         });
       }
-      this.cache.operations.shift();
+      await this.completeOperation(operation);
       this.offline = false;
       await this.persistCache();
       return { path: operation.path, overwrite, revision };
@@ -2006,6 +2367,7 @@
     RemoteGraphStore,
     GraphIndex,
     ConflictError,
+    mergeText,
     parseDocument,
     serializeDocument,
     flattenBlocks,

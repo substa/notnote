@@ -674,8 +674,8 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
             raise ValueError("JSON body must be an object")
         return payload
 
-    def scan_graph(self) -> list[dict]:
-        """Return bounded note metadata and content for initial client indexing."""
+    def graph_candidates(self) -> list[Path]:
+        """Return the bounded Markdown paths shared by full and incremental scans."""
         assert self.graph
         candidates: list[Path] = []
         candidates.extend(path for path in self.graph.iterdir() if path.is_file() and not path.is_symlink() and path.suffix.lower() in MARKDOWN_SUFFIXES)
@@ -692,6 +692,32 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
         unique = sorted(set(candidates))
         if len(unique) > MAX_GRAPH_FILES:
             raise ValueError(f"Graph contains more than {MAX_GRAPH_FILES} Markdown files")
+        return unique
+
+    def graph_manifest(self) -> list[dict]:
+        """Return revisions without reading or transferring note contents."""
+        assert self.graph
+        files = []
+        for path in self.graph_candidates():
+            try:
+                stat = path.stat()
+                if stat.st_size > MAX_BODY:
+                    continue
+                files.append({
+                    "path": path.relative_to(self.graph).as_posix(),
+                    "name": path.name,
+                    "folder": path.parent.relative_to(self.graph).as_posix() if path.parent != self.graph else "",
+                    "revision": str(stat.st_mtime_ns),
+                    "size": stat.st_size,
+                })
+            except OSError:
+                continue
+        return files
+
+    def scan_graph(self) -> list[dict]:
+        """Return bounded note metadata and content for initial client indexing."""
+        assert self.graph
+        unique = self.graph_candidates()
         files = []
         cache = self.server.file_cache  # type: ignore[attr-defined]
         cache_lock = self.server.file_cache_lock  # type: ignore[attr-defined]
@@ -801,6 +827,8 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
                 return self.json_response({"files": files, "size": size, "lastModified": round(last_modified * 1000), "partial": skipped > 0})
             if parsed.path == "/api/graph/files":
                 return self.json_response({"files": self.scan_graph(), "config": journal_config(self.graph)})
+            if parsed.path == "/api/graph/manifest":
+                return self.json_response({"files": self.graph_manifest(), "config": journal_config(self.graph)})
             if parsed.path == "/api/graph/assets":
                 root = self.graph / "assets"
                 files = [path.relative_to(self.graph).as_posix() for path in root.rglob("*") if path.is_file() and not path.is_symlink()] if root.is_dir() else []

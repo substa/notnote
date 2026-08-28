@@ -162,14 +162,43 @@ export async function flushGraphSave(interactive = false, force = false) {
           return false;
         await session.graphStore.writePage(page, content, { force: true });
       }
-      session.graphIndex.updatePage(page, content);
+      const unchangedSinceRequest =
+        state.graphPage === page && currentMarkdown() === content;
+      let mergeNeedsReview = false;
+      if (page.autoMerged) {
+        delete page.autoMerged;
+        if (state.graphPage === page) {
+          let visibleContent = page.content;
+          if (!unchangedSinceRequest) {
+            const localNow = currentMarkdown();
+            const followUp = Graph.mergeText(content, localNow, page.content);
+            if (followUp.conflicts) {
+              visibleContent = localNow;
+              mergeNeedsReview = true;
+            } else visibleContent = followUp.content;
+          }
+          state.graphDocument = Graph.parseDocument(visibleContent);
+          restoreGraphCollapse();
+          renderGraphPage();
+          toast(
+            mergeNeedsReview
+              ? "New edits need conflict review"
+              : "Concurrent changes merged automatically",
+          );
+        }
+      }
+      session.graphIndex.updatePage(page, page.content);
       await Graph.removeDraft(page.path).catch(() => {});
-      if (state.graphPage === page && currentMarkdown() === content) {
+      if (unchangedSinceRequest) {
         state.dirty = false;
         app.classList.remove("dirty");
         saveState.textContent = graphStatusLabel("Saved");
+      } else {
+        state.dirty = true;
+        graphChanged();
       }
-      state.graphConflict = false;
+      state.graphConflict = mergeNeedsReview;
+      if (mergeNeedsReview) saveState.textContent = "Conflict";
       if (session.remoteRefreshPending) graphSessionDependencies.scheduleRemoteRefresh();
       return true;
     } catch (error) {

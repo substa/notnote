@@ -109,6 +109,25 @@ class AssetReferenceTests(unittest.TestCase):
         self.assertFalse(content_mentions_asset("- no attachment here", path))
 
 
+class GraphManifestTests(unittest.TestCase):
+    def test_manifest_contains_revisions_without_note_content(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            graph = Path(temporary).resolve()
+            (graph / "pages").mkdir()
+            target = graph / "pages" / "note.md"
+            target.write_text("- private content\n", encoding="utf-8")
+            handler = object.__new__(NotnoteHandler)
+            handler.server = SimpleNamespace(graph=graph)
+
+            revision = str(target.stat().st_mtime_ns)
+            manifest = handler.graph_manifest()
+
+        self.assertEqual(len(manifest), 1)
+        self.assertEqual(manifest[0]["path"], "pages/note.md")
+        self.assertEqual(manifest[0]["revision"], revision)
+        self.assertNotIn("content", manifest[0])
+
+
 class GraphWriteConflictTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

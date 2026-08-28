@@ -325,6 +325,70 @@ test('preserves assets mentioned through raw, encoded, or non-standard links', (
   assert.equal(Graph.contentMentionsAsset('- no attachment here', path), false);
 });
 
+test('three-way merges independent edits and rejects overlapping edits', () => {
+  const base = '- first\n- shared\n- last\n';
+  const merged = Graph.mergeText(
+    base,
+    '- first locally\n- shared\n- last\n',
+    '- first\n- shared\n- last remotely\n',
+  );
+  assert.equal(merged.content, '- first locally\n- shared\n- last remotely\n');
+  assert.equal(merged.conflicts, false);
+  const multiple = Graph.mergeText(
+    base,
+    '- first locally\n- shared\n- last locally\n',
+    '- first\n- shared remotely\n- last\n',
+  );
+  assert.equal(
+    multiple.content,
+    '- first locally\n- shared remotely\n- last locally\n',
+  );
+  assert.equal(multiple.conflicts, false);
+  assert.equal(
+    Graph.mergeText(base, '- local\n- shared\n- last\n', '- remote\n- shared\n- last\n').conflicts,
+    true,
+  );
+});
+
+test('refreshes a remote replica from a revision manifest', async () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: {
+      files: [
+        { path: 'pages/a.md', name: 'a.md', folder: 'pages', content: '- old', revision: '1' },
+        { path: 'pages/deleted.md', name: 'deleted.md', folder: 'pages', content: '- gone', revision: '1' },
+      ],
+      config: {},
+    },
+    operations: [],
+  };
+  store.persistCache = async () => {};
+  store.api = async (path) => {
+    if (path === '/manifest')
+      return {
+        config: {},
+        files: [
+          { path: 'pages/a.md', name: 'a.md', folder: 'pages', revision: '2' },
+          { path: 'pages/new.md', name: 'new.md', folder: 'pages', revision: '1' },
+        ],
+      };
+    if (path.includes('pages%2Fa.md')) return { content: '- fresh', revision: '2' };
+    if (path.includes('pages%2Fnew.md')) return { content: '- new', revision: '1' };
+    throw new Error(`Unexpected path ${path}`);
+  };
+
+  const payload = await store.refreshFromManifest();
+
+  assert.equal(
+    JSON.stringify(payload.files.map((file) => [file.path, file.content, file.revision])),
+    JSON.stringify([
+      ['pages/a.md', '- fresh', '2'],
+      ['pages/new.md', '- new', '1'],
+    ]),
+  );
+});
+
 test('opens a cached remote graph without waiting for the network', async () => {
   const cached = {
     status: { name: 'Cached graph', config: {} },
@@ -348,6 +412,21 @@ test('opens a cached remote graph without waiting for the network', async () => 
   await store.reconnect();
   assert.equal(store.name, 'Fresh graph');
   assert.equal(store.offline, false);
+});
+
+test('coalesces queued writes without letting an old acknowledgement remove new text', () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  const first = store.mergedOperations([], {
+    type: 'write', path: 'pages/a.md', content: '- first', baseContent: '- base', expectedRevision: '1',
+  });
+  const second = store.mergedOperations(first, {
+    type: 'write', path: 'pages/a.md', content: '- second', baseContent: '- first', expectedRevision: '2',
+  });
+
+  assert.equal(second.length, 1);
+  assert.notEqual(second[0].id, first[0].id);
+  assert.equal(second[0].baseContent, '- base');
+  assert.equal(second[0].expectedRevision, '1');
 });
 
 test('does not queue unchanged remote settings during cached startup', async () => {
@@ -392,6 +471,39 @@ test('queues and synchronizes remote page writes while offline', async () => {
   assert.equal(store.pendingCount, 0);
   assert.equal(page.lastModified, '2');
   assert.equal(store.offline, false);
+});
+
+test('automatically merges an offline write when server edits are independent', async () => {
+  const store = new Graph.RemoteGraphStore({ name: 'Remote' });
+  store.cache = {
+    status: { name: 'Remote' },
+    files: { files: [], config: {} },
+    operations: [{
+      type: 'write',
+      path: 'pages/shared.md',
+      baseContent: '- first\n- last\n',
+      content: '- first locally\n- last\n',
+      expectedRevision: '1',
+      create: false,
+    }],
+  };
+  store.offline = false;
+  store.pendingCount = 1;
+  store.persistCache = async function () { this.pendingCount = this.cache.operations.length; };
+  let written = null;
+  store.api = async (path, options) => {
+    if (path.startsWith('/file?'))
+      return { content: '- first\n- last remotely\n', revision: '2' };
+    const payload = JSON.parse(options.body);
+    if (payload.expectedRevision === '1') throw new Graph.ConflictError();
+    written = payload;
+    return { revision: '3' };
+  };
+
+  assert.equal(await store.syncPending(), 1);
+  assert.equal(written.content, '- first locally\n- last remotely\n');
+  assert.equal(written.expectedRevision, '2');
+  assert.equal(store.pendingCount, 0);
 });
 
 test('moves a rejected offline write to recovery so synchronization can continue', async () => {

@@ -93,8 +93,10 @@ saveState.textContent = "Loading…";
     session.graphHistoryIndex = -1;
     await openGraphLanding({ replaceRoute: true });
     saveState.textContent = graphStatusLabel();
+    // Cached content paints quickly, but it must be reconciled before the
+    // startup overlay exposes an editable page with an obsolete revision.
     if (navigator.onLine && (remote.offline || remote.pendingCount))
-      setTimeout(syncOfflineGraph, 0);
+      await syncOfflineGraph();
     return;
   } catch {}
   try {

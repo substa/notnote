@@ -257,10 +257,52 @@ window.addEventListener("beforeunload", (event) => {
 // Remote events coalesce index refreshes and offline queue synchronization.
 let externalCheckTime = 0;
 let remoteRefreshTimer = null;
+const remoteEvents = new Map();
 
-export function scheduleRemoteRefresh() {
+export function scheduleRemoteRefresh(event = null) {
+  if (event?.path) remoteEvents.set(`${event.type}:${event.oldPath || ""}:${event.path}`, event);
   clearTimeout(remoteRefreshTimer);
-  remoteRefreshTimer = setTimeout(() => checkExternalGraphPage(true), 120);
+  remoteRefreshTimer = setTimeout(async () => {
+    const pending = [...remoteEvents.values()];
+    remoteEvents.clear();
+    if (pending.length && session.graphStore?.refreshEvent) {
+      for (const item of pending) await refreshRemoteEvent(item);
+    } else await checkExternalGraphPage(true);
+  }, 120);
+}
+
+async function refreshRemoteEvent(event) {
+  try {
+    const previous = session.graphStore.pages.find(
+      (page) => page.path === (event.oldPath || event.path),
+    );
+    const result = await session.graphStore.refreshEvent(event);
+    if (result.ignored) return;
+    if (previous && (result.removed || result.oldPath))
+      session.graphIndex.removePage(previous);
+    if (result.page)
+      session.graphIndex.updatePage(result.page, result.page.content);
+    const currentPath = state.graphPage?.path;
+    if (result.removed === currentPath || result.oldPath === currentPath) {
+      session.remoteRefreshPending = false;
+      saveState.textContent = "Page removed";
+      return;
+    }
+    if (result.page?.path === currentPath && !state.dirty) {
+      state.graphPage = result.page;
+      state.graphDocument = Graph.parseDocument(result.page.content);
+      restoreGraphCollapse();
+      if (state.journalMode)
+        session.journalDocuments.set(result.page.path, state.graphDocument);
+      renderGraphPage();
+      updateStats();
+      saveState.textContent = "Reloaded";
+    } else renderReferences();
+    session.remoteRefreshPending = false;
+  } catch {
+    // A missed rename/delete or transient request is reconciled by one manifest scan.
+    await checkExternalGraphPage(true);
+  }
 }
 
 export function watchRemoteGraph() {
@@ -284,17 +326,30 @@ export function watchRemoteGraph() {
       }
       return;
     }
-    scheduleRemoteRefresh();
+    scheduleRemoteRefresh(event);
   });
 }
 
 let remoteSyncing = null;
-export async function syncOfflineGraph() {
+let remoteLocking = null;
+export async function syncOfflineGraph(lockHeld = false) {
   if (!session.graphStore?.isRemote || !navigator.onLine) return false;
+  if (!lockHeld && navigator.locks?.request) {
+    if (remoteLocking) return remoteLocking;
+    remoteLocking = navigator.locks
+      .request("notnote-remote-sync", { mode: "exclusive" }, () =>
+        syncOfflineGraph(true),
+      )
+      .finally(() => {
+        remoteLocking = null;
+      });
+    return remoteLocking;
+  }
   if (remoteSyncing) return remoteSyncing;
   const store = session.graphStore;
   remoteSyncing = (async () => {
     try {
+      await store.reloadPendingOperations?.();
       const pending = store.pendingCount || 0;
       saveState.textContent = pending
         ? `Syncing ${pending} changes…`
@@ -327,19 +382,21 @@ export async function syncOfflineGraph() {
       await loadGraphSettings();
       const pages = await store.scan();
       if (session.graphStore !== store) return false;
-      session.graphIndex = new Graph.GraphIndex(pages);
-      session.journalDocuments.clear();
-      const current =
-        state.graphPage &&
-        pages.find((page) => page.path === state.graphPage.path);
-      if (current && !state.dirty) {
-        state.graphPage = current;
-        state.graphDocument = Graph.parseDocument(current.content);
-        restoreGraphCollapse();
-        if (state.journalMode)
-          session.journalDocuments.set(current.path, state.graphDocument);
-        renderGraphPage();
-        updateStats();
+      if (pending || store.lastRefreshChanged !== false) {
+        session.graphIndex = new Graph.GraphIndex(pages);
+        session.journalDocuments.clear();
+        const current =
+          state.graphPage &&
+          pages.find((page) => page.path === state.graphPage.path);
+        if (current && !state.dirty) {
+          state.graphPage = current;
+          state.graphDocument = Graph.parseDocument(current.content);
+          restoreGraphCollapse();
+          if (state.journalMode)
+            session.journalDocuments.set(current.path, state.graphDocument);
+          renderGraphPage();
+          updateStats();
+        }
       }
       watchRemoteGraph();
       app.classList.remove("offline-mode");
@@ -389,6 +446,13 @@ async function checkExternalGraphPage(force = false) {
     const currentPath = state.graphPage.path;
     const previousModified = state.graphPage.lastModified;
     const pages = await session.graphStore.scan();
+    if (
+      session.graphStore.isRemote &&
+      session.graphStore.lastRefreshChanged === false
+    ) {
+      session.remoteRefreshPending = false;
+      return;
+    }
     const current = pages.find((page) => page.path === currentPath);
     session.graphIndex = new Graph.GraphIndex(pages);
     if (!current) {
