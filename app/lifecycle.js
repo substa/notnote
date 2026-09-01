@@ -500,11 +500,17 @@ async function checkExternalGraphPage(force = false) {
   }
 }
 window.addEventListener("online", () => syncOfflineGraph());
-window.addEventListener("focus", () => {
-  if (session.graphStore?.isRemote && (session.graphStore.offline || session.graphStore.pendingCount))
-    syncOfflineGraph();
-  else checkExternalGraphPage();
-});
+
+// Installed iOS PWAs can be resumed without restoring their EventSource connection.
+// Reconcile the replica on every foreground lifecycle signal rather than relying on
+// a push event that may have been missed while WebKit suspended the page.
+function refreshGraphAfterForeground() {
+  if (!state.graphMode || !session.graphStore) return;
+  if (session.graphStore.isRemote && navigator.onLine) syncOfflineGraph();
+  else checkExternalGraphPage(true);
+}
+window.addEventListener("focus", refreshGraphAfterForeground);
+window.addEventListener("pageshow", refreshGraphAfterForeground);
 window.addEventListener("popstate", async () => {
   const settingsTab = settingsTabFromPath();
   if (settingsTab) {
@@ -531,14 +537,8 @@ window.addEventListener("popstate", async () => {
   });
 });
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") {
-    if (
-      session.graphStore?.isRemote &&
-      (session.graphStore.offline || session.graphStore.pendingCount)
-    )
-      syncOfflineGraph();
-    else checkExternalGraphPage();
-  } else if (state.graphMode) flushGraphSave(false);
+  if (document.visibilityState === "visible") refreshGraphAfterForeground();
+  else if (state.graphMode) flushGraphSave(false);
 });
 // Journal history grows in bounded batches as the user approaches the scroll boundary.
 let journalScrollLoading = false;
