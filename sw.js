@@ -3,7 +3,7 @@
  * Shell files are immutable within a generated revision; user assets use a separate
  * size-limited cache.
  */
-const CACHE = "notnote-editor-fbb9aa904c75";
+const CACHE = "notnote-editor-67d3a65f2e1d";
 const ASSET_CACHE = "notnote-graph-assets-v1";
 const SETTINGS_CACHE = "notnote-pwa-settings-v1";
 const MAX_ASSET_ENTRIES = 100;
@@ -248,16 +248,24 @@ function handleGraphAsset(event) {
 async function shellResponse(request) {
   const cache = await caches.open(CACHE);
   const navigation = request.mode === "navigate";
-  const cached = navigation
-    ? await cache.match("./index.html")
-    : await cache.match(request, { ignoreSearch: true });
-  if (cached) return cached;
-  const response = await fetch(request);
-  if (response.ok) {
-    const key = navigation ? "./index.html" : request;
+  const key = navigation ? "./index.html" : request;
+  try {
+    // Brave can keep an old controlling worker across full browser restarts.
+    // Always validate the shell online so it cannot indefinitely serve an old
+    // bundle that contains obsolete synchronization/conflict behavior.
+    const response = await fetch(request, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Shell request failed (${response.status})`);
     await cache.put(key, response.clone());
+    return response;
+  } catch {
+    return (
+      (await cache.match(key, navigation ? undefined : { ignoreSearch: true })) ||
+      new Response("Application unavailable offline", {
+        status: 503,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      })
+    );
   }
-  return response;
 }
 
 self.addEventListener("fetch", (event) => {

@@ -87,7 +87,15 @@ $("#findClose").addEventListener("click", closeFind);
 
 $("#graphConflictDialog").addEventListener("click", (event) => {
   const choice = event.target.dataset.graphConflict;
-  if (choice) resolveGraphConflict(choice === "cancel" ? null : choice);
+  if (!choice) return;
+  if (choice === "merge-edit") {
+    $("#graphConflictMergePanel").hidden = false;
+    $("[data-graph-conflict=\"merge\"]").hidden = false;
+    event.target.hidden = true;
+    $("#graphConflictMerged").focus();
+    return;
+  }
+  resolveGraphConflict(choice === "cancel" ? null : choice);
 });
 
 $("#confirmDialog").addEventListener("click", async (event) => {
@@ -327,6 +335,15 @@ export function watchRemoteGraph() {
   const store = session.graphStore;
   session.closeRemoteEvents = store.subscribe(
     (event) => {
+      const sequence = Number(event.sequence);
+      if (event.type === "reconcile") {
+        if (Number.isFinite(sequence)) store.eventSequence = sequence;
+        // Always verify the manifest. Brave can advance/deliver SSE state while
+        // a frozen page fails to apply the corresponding graph refresh.
+        scheduleRemoteRefresh();
+        return;
+      }
+      if (Number.isFinite(sequence)) store.eventSequence = sequence;
       const currentPath = state.graphPage?.path;
       if (
         event.path === currentPath &&
@@ -358,7 +375,10 @@ let remoteSyncing = null;
 let remoteLocking = null;
 export async function syncOfflineGraph(lockHeld = false) {
   if (!session.graphStore?.isRemote) return false;
-  if (!lockHeld && navigator.locks?.request) {
+  // A read-only refresh does not need a cross-tab Web Lock. On iOS Brave a
+  // lock owned by a frozen tab can otherwise stall foreground reconciliation
+  // until the user reloads the page. Reserve locking for queued writes only.
+  if (!lockHeld && session.graphStore.pendingCount && navigator.locks?.request) {
     if (remoteLocking) return remoteLocking;
     remoteLocking = navigator.locks
       .request("notnote-remote-sync", { mode: "exclusive" }, () =>
@@ -532,7 +552,11 @@ let lastForegroundRefresh = Date.now();
 function refreshGraphAfterForeground() {
   if (!state.graphMode || !session.graphStore) return;
   lastForegroundRefresh = Date.now();
-  if (session.graphStore.isRemote) syncOfflineGraph();
+  if (
+    session.graphStore.isRemote &&
+    (session.graphStore.offline || session.graphStore.pendingCount)
+  )
+    syncOfflineGraph();
   else checkExternalGraphPage(true);
 }
 window.addEventListener("focus", refreshGraphAfterForeground);
@@ -545,7 +569,7 @@ let foregroundHeartbeat = Date.now();
 setInterval(() => {
   const now = Date.now();
   const resumed = now - foregroundHeartbeat > 3000;
-  const pollingDue = now - lastForegroundRefresh > 15000;
+  const pollingDue = now - lastForegroundRefresh > 5000;
   foregroundHeartbeat = now;
   if (document.visibilityState !== "visible") return;
   if (resumed) refreshGraphAfterForeground();

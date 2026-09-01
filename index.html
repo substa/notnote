@@ -385,10 +385,17 @@
               <pre id="graphConflictExternal"></pre>
             </section>
           </div>
+          <section id="graphConflictMergePanel" class="conflict-merge" hidden>
+            <h3>Merged version</h3>
+            <p>Edit the final Markdown below, then save it to the server.</p>
+            <textarea id="graphConflictMerged" spellcheck="true" aria-label="Merged Markdown"></textarea>
+          </section>
           <div>
             <button type="button" data-graph-conflict="cancel">Cancel</button
             ><button type="button" data-graph-conflict="external">Use version on disk</button
-            ><button type="button" class="primary" data-graph-conflict="local">Keep my version</button>
+            ><button type="button" data-graph-conflict="merge-edit">Merge manually</button
+            ><button type="button" class="primary" data-graph-conflict="local">Keep my version</button
+            ><button type="button" class="primary" data-graph-conflict="merge" hidden>Save merged version</button>
           </div>
         </div>
       </div>

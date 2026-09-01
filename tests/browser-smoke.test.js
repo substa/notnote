@@ -144,7 +144,7 @@ test("the browser starts and installs core interactions", async (context) => {
     while (Date.now() < deadline) {
       if (
         await client.value(
-          'document.querySelector("#app") && !document.querySelector("#app").classList.contains("initial-loading")',
+          'document.querySelector("#app") && !document.querySelector("#app").classList.contains("initial-loading") && /Welcome to notnote/.test(document.querySelector("#editor")?.textContent || "") && performance.getEntriesByType("resource").some((entry) => new URL(entry.name).pathname === "/app.bundle.js")',
         )
       )
         break;

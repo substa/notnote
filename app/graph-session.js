@@ -104,6 +104,53 @@ export function graphChanged() {
 let graphSaving = null;
 let pendingGraphConflict = null;
 
+function conflictChangedLines(localContent, externalContent) {
+  const local = localContent.split("\n");
+  const external = externalContent.split("\n");
+  const localChanged = new Set(local.keys());
+  const externalChanged = new Set(external.keys());
+  // Keep the diff bounded for unusually large notes. Typical journal pages use
+  // the full LCS so moved insertions do not make every following line look changed.
+  if (local.length * external.length <= 250000) {
+    const table = Array.from(
+      { length: local.length + 1 },
+      () => new Uint32Array(external.length + 1),
+    );
+    for (let left = local.length - 1; left >= 0; left--)
+      for (let right = external.length - 1; right >= 0; right--)
+        table[left][right] = local[left] === external[right]
+          ? table[left + 1][right + 1] + 1
+          : Math.max(table[left + 1][right], table[left][right + 1]);
+    let left = 0;
+    let right = 0;
+    while (left < local.length && right < external.length) {
+      if (local[left] === external[right]) {
+        localChanged.delete(left++);
+        externalChanged.delete(right++);
+      } else if (table[left + 1][right] >= table[left][right + 1]) left++;
+      else right++;
+    }
+  } else {
+    for (let index = 0; index < Math.min(local.length, external.length); index++)
+      if (local[index] === external[index]) {
+        localChanged.delete(index);
+        externalChanged.delete(index);
+      }
+  }
+  return { local, external, localChanged, externalChanged };
+}
+
+function renderConflictVersion(element, lines, changed) {
+  element.replaceChildren(
+    ...lines.map((line, index) => {
+      const row = document.createElement("span");
+      row.classList.toggle("conflict-line-changed", changed.has(index));
+      row.textContent = line || "\u200b";
+      return row;
+    }),
+  );
+}
+
 async function chooseGraphConflict(page, localContent) {
   let external;
   try {
@@ -113,8 +160,21 @@ async function chooseGraphConflict(page, localContent) {
     return null;
   }
   const dialog = $("#graphConflictDialog");
-  $("#graphConflictLocal").textContent = localContent;
-  $("#graphConflictExternal").textContent = external.content;
+  const diff = conflictChangedLines(localContent, external.content);
+  renderConflictVersion(
+    $("#graphConflictLocal"),
+    diff.local,
+    diff.localChanged,
+  );
+  renderConflictVersion(
+    $("#graphConflictExternal"),
+    diff.external,
+    diff.externalChanged,
+  );
+  $("#graphConflictMerged").value = localContent;
+  $("#graphConflictMergePanel").hidden = true;
+  $("[data-graph-conflict=\"merge-edit\"]").hidden = false;
+  $("[data-graph-conflict=\"merge\"]").hidden = true;
   dialog.hidden = false;
   requestAnimationFrame(() => $("[data-graph-conflict=\"local\"]")?.focus());
   const choice = await new Promise((resolve) => {
@@ -122,11 +182,17 @@ async function chooseGraphConflict(page, localContent) {
   });
   pendingGraphConflict = null;
   dialog.hidden = true;
-  return choice ? { choice, external } : null;
+  return choice ? { ...choice, external } : null;
 }
 
 export function resolveGraphConflict(choice) {
-  pendingGraphConflict?.resolve(choice);
+  pendingGraphConflict?.resolve(
+    choice === "merge"
+      ? { choice, content: $("#graphConflictMerged").value }
+      : choice
+        ? { choice }
+        : null,
+  );
 }
 
 function useExternalGraphVersion(page, external) {
@@ -152,7 +218,7 @@ export async function flushGraphSave(interactive = false, force = false) {
     if (!state.dirty) return true;
   }
   const page = state.graphPage;
-  const content = currentMarkdown();
+  let content = currentMarkdown();
   clearTimeout(session.graphDraftTimer);
   if (page.virtual) {
     saveState.textContent = "Creating page…";
@@ -191,6 +257,15 @@ export async function flushGraphSave(interactive = false, force = false) {
           useExternalGraphVersion(page, resolution.external);
           await Graph.removeDraft(page.path).catch(() => {});
           return true;
+        }
+        if (resolution.choice === "merge") {
+          content = resolution.content;
+          state.graphDocument = Graph.parseDocument(content);
+          restoreGraphCollapse();
+          if (state.journalMode)
+            session.journalDocuments.set(page.path, state.graphDocument);
+          if (state.sourceMode) sourceEditor.value = content;
+          else renderGraphPage();
         }
         await session.graphStore.writePage(page, content, { force: true });
       }

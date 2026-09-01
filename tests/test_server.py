@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from server import (
+    EventBroker,
     GitSyncManager,
     NotnoteHandler,
     content_mentions_asset,
@@ -107,6 +108,20 @@ class AssetReferenceTests(unittest.TestCase):
             {path},
         )
         self.assertFalse(content_mentions_asset("- no attachment here", path))
+
+
+class GraphEventTests(unittest.TestCase):
+    def test_events_expose_a_monotonic_sequence_for_resume_detection(self):
+        broker = EventBroker()
+        subscriber = broker.subscribe()
+        broker.publish({"type": "changed", "path": "pages/note.md"})
+        first = subscriber.get_nowait()
+        broker.publish({"type": "changed", "path": "pages/other.md"})
+        second = subscriber.get_nowait()
+
+        self.assertEqual(first["sequence"], 1)
+        self.assertEqual(second["sequence"], 2)
+        self.assertEqual(broker.sequence(), 2)
 
 
 class GraphManifestTests(unittest.TestCase):

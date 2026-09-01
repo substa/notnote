@@ -1150,6 +1150,8 @@ body.image-lightbox-open {
 }
 .conflict-dialog {
   width: min(900px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
 }
 .conflict-diff {
   display: grid;
@@ -1177,6 +1179,41 @@ body.image-lightbox-open {
   padding: 9px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  font: 12px/1.45 var(--mono);
+}
+.conflict-diff pre > span {
+  display: block;
+  min-height: 1.45em;
+  margin: 0 -9px;
+  padding: 0 9px;
+}
+#graphConflictLocal .conflict-line-changed {
+  background: color-mix(in srgb, #c94f4f 18%, transparent);
+}
+#graphConflictExternal .conflict-line-changed {
+  background: color-mix(in srgb, #4f9b62 18%, transparent);
+}
+.conflict-merge {
+  margin-top: 12px;
+  text-align: left;
+}
+.conflict-merge h3 {
+  margin: 0 0 3px;
+  font-size: 13px;
+}
+.conflict-merge p {
+  margin: 0 0 7px;
+}
+.conflict-merge textarea {
+  display: block;
+  width: 100%;
+  height: min(34vh, 320px);
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 9px;
+  background: var(--chrome);
+  color: var(--text);
   font: 12px/1.45 var(--mono);
 }
 @media (max-width: 620px) {

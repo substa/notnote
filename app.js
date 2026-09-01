@@ -141,7 +141,7 @@ if ("launchQueue" in window) {
 }
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker
-    .register("sw.js")
+    .register("sw.js", { updateViaCache: "none" })
     .then((registration) => {
       syncAssetCacheSize();
       setTimeout(() => registration.update().catch(() => {}), 1000);

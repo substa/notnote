@@ -1162,6 +1162,7 @@
       this.clientId = newId();
       this.offline = false;
       this.pendingCount = 0;
+      this.eventSequence = null;
       this.cache = null;
       this.saveRecoveryDraft = saveDraft;
       this.readRecoveryDraft = getDraft;

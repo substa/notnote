@@ -127,6 +127,7 @@ class EventBroker:
     def __init__(self) -> None:
         self._subscribers: set[queue.Queue] = set()
         self._lock = threading.Lock()
+        self._sequence = 0
 
     def subscribe(self) -> queue.Queue:
         subscriber: queue.Queue = queue.Queue(maxsize=100)
@@ -139,8 +140,13 @@ class EventBroker:
             self._subscribers.discard(subscriber)
 
     def publish(self, event: dict) -> None:
-        event["timestamp"] = time.time()
         with self._lock:
+            self._sequence += 1
+            event = {
+                **event,
+                "sequence": self._sequence,
+                "timestamp": time.time(),
+            }
             subscribers = list(self._subscribers)
         for subscriber in subscribers:
             try:
@@ -151,6 +157,10 @@ class EventBroker:
                     subscriber.put_nowait(event)
                 except (queue.Empty, queue.Full):
                     pass
+
+    def sequence(self) -> int:
+        with self._lock:
+            return self._sequence
 
 
 class GraphWatcher(threading.Thread):
@@ -756,15 +766,25 @@ class NotnoteHandler(SimpleHTTPRequestHandler):
         self.send_header("Connection", "keep-alive")
         self.end_headers()
         try:
-            self.wfile.write(b": connected\n\n")
+            # A real event, rather than an SSE comment, lets suspended mobile
+            # browsers detect changes they discarded while in the background.
+            connected = json.dumps({
+                "type": "reconcile",
+                "sequence": self.broker.sequence(),
+            }).encode("utf-8")
+            self.wfile.write(b"retry: 2000\ndata: " + connected + b"\n\n")
             self.wfile.flush()
             while True:
                 try:
-                    event = subscriber.get(timeout=15)
+                    event = subscriber.get(timeout=5)
                     payload = json.dumps(event, ensure_ascii=False).encode("utf-8")
                     self.wfile.write(b"data: " + payload + b"\n\n")
                 except queue.Empty:
-                    self.wfile.write(b": keepalive\n\n")
+                    heartbeat = json.dumps({
+                        "type": "reconcile",
+                        "sequence": self.broker.sequence(),
+                    }).encode("utf-8")
+                    self.wfile.write(b"data: " + heartbeat + b"\n\n")
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError, OSError):
             pass
