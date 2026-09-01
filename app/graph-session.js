@@ -183,9 +183,10 @@ export async function flushGraphSave(interactive = false, force = false) {
   return result;
 }
 
-// Use an explicit instant scroll because the workspace has CSS smooth scrolling enabled.
+// Assigning scrollTop bypasses CSS smooth scrolling and works in installed iOS PWAs,
+// whose WebKit version does not consistently support ScrollToOptions.behavior: "instant".
 function scrollWorkspaceTo(top = 0) {
-  notnoteWrap.scrollTo({ top: Math.max(0, top), behavior: "instant" });
+  notnoteWrap.scrollTop = Math.max(0, top);
 }
 
 // Browser routes and the internal graph history are updated as one navigation boundary.
