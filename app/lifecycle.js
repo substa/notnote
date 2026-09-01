@@ -50,6 +50,7 @@ import {
   openToday,
   pageFromGraphRoute,
   renderReferences,
+  resolveGraphConflict,
 } from "./graph-session.js";
 import {
   commitGraphBlock,
@@ -83,6 +84,11 @@ $("#findInput").addEventListener("keydown", (event) => {
 $("#findNext").addEventListener("click", () => moveFind(1));
 $("#findPrev").addEventListener("click", () => moveFind(-1));
 $("#findClose").addEventListener("click", closeFind);
+
+$("#graphConflictDialog").addEventListener("click", (event) => {
+  const choice = event.target.dataset.graphConflict;
+  if (choice) resolveGraphConflict(choice === "cancel" ? null : choice);
+});
 
 $("#confirmDialog").addEventListener("click", async (event) => {
   const action = event.target.dataset.dialog;

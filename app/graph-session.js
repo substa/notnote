@@ -102,20 +102,51 @@ export function graphChanged() {
 }
 
 let graphSaving = null;
+let pendingGraphConflict = null;
+
+async function chooseGraphConflict(page, localContent) {
+  let external;
+  try {
+    external = await session.graphStore.freshFile(page);
+  } catch (error) {
+    toast(error.message || "Could not load the version on disk");
+    return null;
+  }
+  const dialog = $("#graphConflictDialog");
+  $("#graphConflictLocal").textContent = localContent;
+  $("#graphConflictExternal").textContent = external.content;
+  dialog.hidden = false;
+  requestAnimationFrame(() => $("[data-graph-conflict=\"local\"]")?.focus());
+  const choice = await new Promise((resolve) => {
+    pendingGraphConflict = { resolve };
+  });
+  pendingGraphConflict = null;
+  dialog.hidden = true;
+  return choice ? { choice, external } : null;
+}
+
+export function resolveGraphConflict(choice) {
+  pendingGraphConflict?.resolve(choice);
+}
+
+function useExternalGraphVersion(page, external) {
+  page.content = external.content;
+  page.lastModified = external.lastModified;
+  state.graphDocument = Graph.parseDocument(external.content);
+  restoreGraphCollapse();
+  if (state.journalMode) session.journalDocuments.set(page.path, state.graphDocument);
+  session.graphIndex.updatePage(page, external.content);
+  state.dirty = false;
+  state.graphConflict = false;
+  app.classList.remove("dirty");
+  renderGraphPage();
+  updateStats();
+  saveState.textContent = graphStatusLabel("Reloaded");
+}
+
 // Persist recovery data before disk/server writes so interrupted saves can be resumed safely.
 export async function flushGraphSave(interactive = false, force = false) {
   if (!state.graphMode || !state.graphPage || !state.dirty) return true;
-  if (state.graphConflict && !force) {
-    saveState.textContent = "Conflict";
-    if (
-      !interactive ||
-      !confirm(
-        "The recovered draft conflicts with the file on disk. Overwrite the disk version?",
-      )
-    )
-      return false;
-    force = true;
-  }
   if (graphSaving) {
     await graphSaving;
     if (!state.dirty) return true;
@@ -148,18 +179,19 @@ export async function flushGraphSave(interactive = false, force = false) {
   graphSaving = (async () => {
     try {
       try {
+        if (state.graphConflict && !force) throw new Graph.ConflictError();
         await session.graphStore.writePage(page, content, { force });
       } catch (error) {
         if (error.name !== "ConflictError") throw error;
         state.graphConflict = true;
         saveState.textContent = "Conflict";
-        if (
-          !interactive ||
-          !confirm(
-            "This page changed on disk. Overwrite the external changes?",
-          )
-        )
-          return false;
+        const resolution = await chooseGraphConflict(page, content);
+        if (!resolution) return false;
+        if (resolution.choice === "external") {
+          useExternalGraphVersion(page, resolution.external);
+          await Graph.removeDraft(page.path).catch(() => {});
+          return true;
+        }
         await session.graphStore.writePage(page, content, { force: true });
       }
       session.graphIndex.updatePage(page, content);

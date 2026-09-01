@@ -1148,6 +1148,45 @@ body.image-lightbox-open {
   background: #b84f4f;
   color: #fff;
 }
+.conflict-dialog {
+  width: min(900px, calc(100% - 32px));
+}
+.conflict-diff {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  text-align: left;
+}
+.conflict-diff section {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.conflict-diff h3 {
+  margin: 0;
+  padding: 7px 9px;
+  background: var(--chrome);
+  font-size: 12px;
+}
+.conflict-diff pre {
+  max-height: min(45vh, 420px);
+  overflow: auto;
+  margin: 0;
+  padding: 9px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.45 var(--mono);
+}
+@media (max-width: 620px) {
+  .conflict-diff {
+    grid-template-columns: 1fr;
+  }
+  .conflict-diff pre {
+    max-height: 20vh;
+  }
+}
 .cleanup-dialog {
   width: min(560px, calc(100% - 32px));
 }

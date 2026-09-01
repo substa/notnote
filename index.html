@@ -366,6 +366,33 @@
         </div>
       </div>
 
+      <div class="dialog-backdrop" id="graphConflictDialog" hidden>
+        <div
+          class="dialog conflict-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="graphConflictTitle"
+        >
+          <h2 id="graphConflictTitle">Save conflict</h2>
+          <p>This note changed elsewhere. Choose the version to keep.</p>
+          <div class="conflict-diff" aria-label="Conflicting versions">
+            <section>
+              <h3>Your version</h3>
+              <pre id="graphConflictLocal"></pre>
+            </section>
+            <section>
+              <h3>Version on disk</h3>
+              <pre id="graphConflictExternal"></pre>
+            </section>
+          </div>
+          <div>
+            <button type="button" data-graph-conflict="cancel">Cancel</button
+            ><button type="button" data-graph-conflict="external">Use version on disk</button
+            ><button type="button" class="primary" data-graph-conflict="local">Keep my version</button>
+          </div>
+        </div>
+      </div>
+
       <div class="dialog-backdrop" id="deleteConfirmDialog" hidden>
         <div
           class="dialog"
