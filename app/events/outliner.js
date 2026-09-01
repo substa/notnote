@@ -133,6 +133,7 @@ export function initOutlinerEvents() {
     finishBlockSwipe(event, true),
   );
 
+
   let taskLongPressTimer = null;
   let taskLongPressStart = null;
   let suppressTaskClickUntil = 0;
@@ -197,6 +198,32 @@ export function initOutlinerEvents() {
   outliner.addEventListener("pointerup", cancelTaskLongPress);
   outliner.addEventListener("pointercancel", cancelTaskLongPress);
   outliner.addEventListener("paste", pasteGraphBlockTree);
+  // Cmd/Ctrl-click toggles blocks and Shift-click selects a range. Once the
+  // outliner owns focus, copy their serialized tree so it can be pasted into
+  // any block editor through the regular tree-paste path.
+  outliner.addEventListener("copy", (event) => {
+    if (
+      !session.selectedGraphBlockIds.size ||
+      session.graphSelectionPagePath !== state.graphPage?.path
+    )
+      return;
+    const selected = session.selectedGraphBlockIds;
+    const blocks = [];
+    const collect = (items) => {
+      for (const block of items) {
+        if (selected.has(block.id)) blocks.push(block);
+        else collect(block.children || []);
+      }
+    };
+    collect(state.graphDocument.blocks);
+    if (!blocks.length) return;
+    event.preventDefault();
+    event.clipboardData?.setData(
+      "text/plain",
+      Graph.serializeDocument({ preamble: [], blocks, trailingNewline: true }),
+    );
+    toast(`Copied ${blocks.length} block${blocks.length === 1 ? "" : "s"}`);
+  });
 
   const blockContextForBullet = (bullet) => {
     const node = bullet?.closest(".block-node");

@@ -364,6 +364,29 @@ test('refreshes a remote replica from a revision manifest', async () => {
   );
 });
 
+test('reconciles when the remote event stream becomes connected', () => {
+  let source;
+  context.EventSource = class {
+    constructor(url) {
+      this.url = url;
+      source = this;
+    }
+    close() {
+      this.closed = true;
+    }
+  };
+  const store = new Graph.RemoteGraphStore({ enabled: true }, '/api/graph');
+  let connected = 0;
+  const close = store.subscribe(() => {}, () => connected++);
+
+  source.onopen();
+  assert.equal(connected, 1);
+  assert.equal(source.url, '/api/graph/events');
+  close();
+  assert.equal(source.closed, true);
+  delete context.EventSource;
+});
+
 test('opens a cached remote graph without waiting for the network', async () => {
   const cached = {
     status: { name: 'Cached graph', config: {} },

@@ -1471,7 +1471,7 @@
       }
     }
 
-    subscribe(listener) {
+    subscribe(listener, onConnect = null) {
       const events = new EventSource(`${this.baseUrl}/events`);
       const channel =
         typeof BroadcastChannel === "function"
@@ -1485,6 +1485,10 @@
           receive(JSON.parse(message.data));
         } catch {}
       };
+      // Reconcile once the live stream is actually established. A server write
+      // can otherwise land after the startup manifest scan but before EventSource
+      // starts receiving events, leaving a newly opened client on stale content.
+      events.onopen = () => onConnect?.();
       if (channel) channel.onmessage = (message) => receive(message.data);
       this.broadcastChannel = channel;
       return () => {

@@ -324,30 +324,40 @@ export function watchRemoteGraph() {
   session.closeRemoteEvents = null;
   if (!session.graphStore?.isRemote || session.graphStore.offline || !session.graphStore.subscribe)
     return;
-  session.closeRemoteEvents = session.graphStore.subscribe((event) => {
-    const currentPath = state.graphPage?.path;
-    if (
-      event.path === currentPath &&
-      event.revision &&
-      String(event.revision) === String(state.graphPage.lastModified)
-    )
-      return;
-    if (state.dirty) {
-      session.remoteRefreshPending = true;
-      if (event.path === currentPath || event.oldPath === currentPath) {
-        state.graphConflict = true;
-        saveState.textContent = "Conflict";
+  const store = session.graphStore;
+  session.closeRemoteEvents = store.subscribe(
+    (event) => {
+      const currentPath = state.graphPage?.path;
+      if (
+        event.path === currentPath &&
+        event.revision &&
+        String(event.revision) === String(state.graphPage.lastModified)
+      )
+        return;
+      if (state.dirty) {
+        session.remoteRefreshPending = true;
+        if (event.path === currentPath || event.oldPath === currentPath) {
+          state.graphConflict = true;
+          saveState.textContent = "Conflict";
+        }
+        return;
       }
-      return;
-    }
-    scheduleRemoteRefresh(event);
-  });
+      scheduleRemoteRefresh(event);
+    },
+    () => scheduleRemoteRefresh(),
+  );
+  // Brave Shields and some mobile proxies can delay or block EventSource. This
+  // manifest check also closes the startup race when no `open` event arrives.
+  setTimeout(() => {
+    if (session.graphStore === store && !state.dirty)
+      checkExternalGraphPage(true);
+  }, 1200);
 }
 
 let remoteSyncing = null;
 let remoteLocking = null;
 export async function syncOfflineGraph(lockHeld = false) {
-  if (!session.graphStore?.isRemote || !navigator.onLine) return false;
+  if (!session.graphStore?.isRemote) return false;
   if (!lockHeld && navigator.locks?.request) {
     if (remoteLocking) return remoteLocking;
     remoteLocking = navigator.locks
@@ -376,6 +386,10 @@ export async function syncOfflineGraph(lockHeld = false) {
       // operation. A stale queue must never define what the user sees at startup.
       await store.refreshAuthoritative?.(pendingPaths);
       await store.scan();
+      // A later verification scan can report "unchanged" because this first
+      // scan has already refreshed the replica. Preserve that result so the UI
+      // still adopts the newly downloaded server pages.
+      let replicaChanged = store.lastRefreshChanged !== false;
       let synced = 0;
       let recovered = migrated || 0;
       while (store.pendingCount) {
@@ -399,8 +413,9 @@ export async function syncOfflineGraph(lockHeld = false) {
       }
       if (session.graphStore !== store) return false;
       const pages = await store.scan();
+      replicaChanged ||= store.lastRefreshChanged !== false;
       if (session.graphStore !== store) return false;
-      if (pendingPaths.length || store.lastRefreshChanged !== false) {
+      if (pendingPaths.length || replicaChanged) {
         session.graphIndex = new Graph.GraphIndex(pages);
         session.journalDocuments.clear();
         const current =
@@ -437,11 +452,14 @@ export async function syncOfflineGraph(lockHeld = false) {
       saveState.textContent = store.offline
         ? graphStatusLabel()
         : "Sync conflict";
-      toast(
-        error.name === "ConflictError"
-          ? "Offline changes conflict with the server"
-          : error.message || "Could not sync offline changes",
-      );
+      // navigator.onLine is unreliable during iOS PWA startup. Probe the
+      // server directly, but keep a genuine offline failure silent.
+      if (!store.networkFailure?.(error))
+        toast(
+          error.name === "ConflictError"
+            ? "Offline changes conflict with the server"
+            : error.message || "Could not sync offline changes",
+        );
       return false;
     } finally {
       remoteSyncing = null;
@@ -510,13 +528,33 @@ window.addEventListener("online", () => syncOfflineGraph());
 // Installed iOS PWAs can be resumed without restoring their EventSource connection.
 // Reconcile the replica on every foreground lifecycle signal rather than relying on
 // a push event that may have been missed while WebKit suspended the page.
+let lastForegroundRefresh = Date.now();
 function refreshGraphAfterForeground() {
   if (!state.graphMode || !session.graphStore) return;
-  if (session.graphStore.isRemote && navigator.onLine) syncOfflineGraph();
+  lastForegroundRefresh = Date.now();
+  if (session.graphStore.isRemote) syncOfflineGraph();
   else checkExternalGraphPage(true);
 }
 window.addEventListener("focus", refreshGraphAfterForeground);
 window.addEventListener("pageshow", refreshGraphAfterForeground);
+
+// WebKit can restore an installed PWA from a frozen snapshot without dispatching
+// focus, pageshow, or visibilitychange. Timers are suspended with the page, so a
+// heartbeat gap reliably detects that resume and reconciles the remote graph.
+let foregroundHeartbeat = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  const resumed = now - foregroundHeartbeat > 3000;
+  const pollingDue = now - lastForegroundRefresh > 15000;
+  foregroundHeartbeat = now;
+  if (document.visibilityState !== "visible") return;
+  if (resumed) refreshGraphAfterForeground();
+  else if (pollingDue) {
+    lastForegroundRefresh = now;
+    checkExternalGraphPage(true);
+  }
+}, 1000);
+
 window.addEventListener("popstate", async () => {
   const settingsTab = settingsTabFromPath();
   if (settingsTab) {

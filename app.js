@@ -77,26 +77,26 @@ app.classList.add("initial-loading");
 saveState.textContent = "Loading…";
 (async () => {
   try {
-    const remote = await Graph.RemoteGraphStore.connect(
-      "/api/graph",
-      { preferCache: true },
-    );
+    // Cold starts are network-first: opening an installed PWA must not expose
+    // an IndexedDB replica before checking the authoritative server. connect()
+    // still falls back to that replica when the server is genuinely offline.
+    const remote = await Graph.RemoteGraphStore.connect("/api/graph");
     session.graphStore = remote;
     session.graphSettings = null;
     await loadGraphSettings();
     const pages = await session.graphStore.scan();
     session.graphIndex = new Graph.GraphIndex(pages);
-    watchRemoteGraph();
     if (state.dirty) return;
     session.journalDocuments.clear();
     session.graphHistory = [];
     session.graphHistoryIndex = -1;
     await openGraphLanding({ replaceRoute: true });
+    // Subscribe only after the current page exists: the stream's open callback
+    // performs a final scan that closes the startup manifest/event race.
+    watchRemoteGraph();
     saveState.textContent = graphStatusLabel();
-    // Cached content paints quickly, but it must be reconciled before the
-    // startup overlay exposes an editable page with an obsolete revision.
-    if (navigator.onLine && (remote.offline || remote.pendingCount))
-      await syncOfflineGraph();
+    // An offline fallback may become reachable while startup is still running.
+    if (remote.offline || remote.pendingCount) await syncOfflineGraph();
     return;
   } catch {}
   try {
@@ -147,8 +147,14 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
       setTimeout(() => registration.update().catch(() => {}), 1000);
     })
     .catch(() => {});
-  navigator.serviceWorker.addEventListener(
-    "controllerchange",
-    syncAssetCacheSize,
-  );
+  let workerReloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    syncAssetCacheSize();
+    // The old worker may have served an obsolete cached shell for this launch.
+    // Adopt the newly installed bundle immediately instead of requiring the user
+    // to refresh manually. Never discard an edit already in progress.
+    if (workerReloading || state.dirty) return;
+    workerReloading = true;
+    location.reload();
+  });
 }
