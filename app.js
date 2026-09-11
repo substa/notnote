@@ -153,7 +153,13 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     // The old worker may have served an obsolete cached shell for this launch.
     // Adopt the newly installed bundle immediately instead of requiring the user
     // to refresh manually. Never discard an edit already in progress.
-    if (workerReloading || state.dirty) return;
+    if (
+      workerReloading ||
+      state.dirty ||
+      session.activeGraphBlock?.field?.isConnected ||
+      session.activeSourceBlock?.isConnected
+    )
+      return;
     workerReloading = true;
     location.reload();
   });

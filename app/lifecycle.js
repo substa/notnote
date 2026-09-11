@@ -285,6 +285,9 @@ export function scheduleRemoteRefresh(event = null) {
   }, 120);
 }
 
+const graphEditorIsActive = () =>
+  Boolean(session.activeGraphBlock?.field?.isConnected);
+
 async function refreshRemoteEvent(event) {
   try {
     const previous = session.graphStore.pages.find(
@@ -302,7 +305,20 @@ async function refreshRemoteEvent(event) {
       saveState.textContent = "Page removed";
       return;
     }
-    if (result.page?.path === currentPath && !state.dirty) {
+    if (
+      result.page?.path === currentPath &&
+      (state.dirty || graphEditorIsActive())
+    ) {
+      // The user may start another edit while an already scheduled refresh is
+      // in flight. Do not replace either the model or its active textarea.
+      session.remoteRefreshPending = true;
+      if (state.dirty) {
+        state.graphConflict = true;
+        saveState.textContent = "Conflict";
+      }
+      return;
+    }
+    if (result.page?.path === currentPath) {
       state.graphPage = result.page;
       state.graphDocument = Graph.parseDocument(result.page.content);
       restoreGraphCollapse();
@@ -313,14 +329,15 @@ async function refreshRemoteEvent(event) {
       saveState.textContent = "Reloaded";
     } else if (state.journalMode && result.page) {
       // Continuous journals can display several pages at once. Keep all visible
-      // days live, not only the currently editable one.
+      // days live, but never rebuild the tree around an active mobile editor.
       session.journalDocuments.set(
         result.page.path,
         Graph.parseDocument(result.page.content),
       );
-      renderGraphPage();
+      if (graphEditorIsActive()) session.remoteRefreshPending = true;
+      else renderGraphPage();
     } else renderReferences();
-    session.remoteRefreshPending = false;
+    if (!graphEditorIsActive()) session.remoteRefreshPending = false;
   } catch {
     // A missed rename/delete or transient request is reconciled by one manifest scan.
     await checkExternalGraphPage(true);
@@ -441,7 +458,15 @@ export async function syncOfflineGraph(lockHeld = false) {
         const current =
           state.graphPage &&
           pages.find((page) => page.path === state.graphPage.path);
-        if (current && (!state.dirty || pendingPaths.length)) {
+        if (
+          current &&
+          (!state.dirty || pendingPaths.length) &&
+          graphEditorIsActive()
+        ) {
+          // Foreground reconciliation may finish after an autosave while the
+          // user is still typing. The replica is current; defer only the DOM.
+          session.remoteRefreshPending = true;
+        } else if (current && (!state.dirty || pendingPaths.length)) {
           state.graphPage = current;
           state.graphDocument = Graph.parseDocument(current.content);
           restoreGraphCollapse();
@@ -508,10 +533,12 @@ async function checkExternalGraphPage(force = false) {
     }
     const currentPath = state.graphPage.path;
     const previousModified = state.graphPage.lastModified;
+    const refreshWasPending = session.remoteRefreshPending;
     const pages = await session.graphStore.scan();
     if (
       session.graphStore.isRemote &&
-      session.graphStore.lastRefreshChanged === false
+      session.graphStore.lastRefreshChanged === false &&
+      !refreshWasPending
     ) {
       session.remoteRefreshPending = false;
       return;
@@ -521,6 +548,13 @@ async function checkExternalGraphPage(force = false) {
     if (!current) {
       session.remoteRefreshPending = false;
       saveState.textContent = "Page removed";
+      return;
+    }
+    if (graphEditorIsActive()) {
+      // Polling runs after the short autosave delay, so `dirty` can already be
+      // false even though the same textarea is still being edited. Replacing
+      // it here is what makes the keyboard disappear on mobile.
+      session.remoteRefreshPending = true;
       return;
     }
     state.graphPage = current;
