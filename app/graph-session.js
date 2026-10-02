@@ -34,6 +34,7 @@ import {
   sourceEditor,
 } from "./dom.js";
 import {
+  autoExpandJournalTasks,
   clearGraphBlockSelection,
   commitGraphBlock,
   graphBlockLocation,
@@ -499,6 +500,8 @@ export async function loadGraphPage(pageOrTitle, options = {}) {
   state.taskView = page.name.toLowerCase() === "tasks.md" ? "all" : null;
   if (state.journalMode) session.journalDocuments.set(page.path, state.graphDocument);
   state.graphZoomId = options.blockId || null;
+  state.taskSummaryIds = [];
+  autoExpandJournalTasks();
   state.sourceMode = false;
   state.dirty = Boolean(draft);
   state.graphConflict = draftConflict;

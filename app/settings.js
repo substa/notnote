@@ -302,6 +302,9 @@ export async function showSettings(tab = "general", options = {}) {
   $("#settingsTheme").value = selectedTheme;
   $("#settingsAccent").value = selectedAccent;
   $("#settingsVim").checked = state.vimEnabled;
+  $("#settingsAutoExpandTodayTasks").checked = Boolean(
+    currentSettings().autoExpandTodayTasks,
+  );
   $("#settingsAssetCacheSize").value = String(assetCacheSize());
   if (tab === "git") {
     updateGitSettingsControls();

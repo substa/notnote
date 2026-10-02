@@ -899,6 +899,25 @@ function journalCompletedTasksElement(date) {
   return details;
 }
 
+export function autoExpandJournalTasks() {
+  if (
+    !state.journalMode ||
+    state.graphZoomId ||
+    !currentSettings().autoExpandTodayTasks
+  )
+    return;
+  const today = taskDate();
+  const tasks = taskOverviewGroups().today;
+  if (
+    !tasks.some(
+      (task) => !task.done && task.scheduled && task.scheduled <= today,
+    )
+  )
+    return;
+  state.taskView = "summary";
+  state.taskSummaryIds = tasks.map(taskPersistenceId);
+}
+
 function journalTaskPanelElement() {
   const overview = taskOverviewGroups();
   taskCompletedTodayIds();

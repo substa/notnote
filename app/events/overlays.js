@@ -227,6 +227,9 @@ export function initOverlayEvents() {
   $("#settingsVim").addEventListener("change", (event) =>
     setVimEnabled(event.target.checked, false),
   );
+  $("#settingsAutoExpandTodayTasks").addEventListener("change", (event) =>
+    saveSettings({ autoExpandTodayTasks: event.target.checked }),
+  );
   $("#settingsAssetCacheSize").addEventListener("change", (event) =>
     setAssetCacheSize(event.target.value),
   );

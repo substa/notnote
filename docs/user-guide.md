@@ -122,7 +122,7 @@ Press `⌘/Ctrl + F` and start typing to highlight every occurrence in the curre
 
 Open the page menu from the gear icon at the right side of the footer. It provides **New page**, **Delete page** when the current page can be deleted, **Page history**, **Settings**, **Shortcuts**, and **Documentation**. You can also open Settings directly with `⌘/Ctrl + ,`.
 
-- **General**, available at `/settings`, controls the light, dark, or system theme, the accent color, and Vim mode.
+- **General**, available at `/settings`, controls the light, dark, or system theme, the accent color, and Vim mode. Enable **Automatically expand today's tasks** to open the journal task panel on navigation when unfinished tasks are scheduled for the current day or earlier. This option is off by default; you can still collapse the panel manually.
 - **Shortcuts**, available at `/settings/shortcuts`, lists keyboard commands by section. Search the list, select a shortcut, and press a new key combination to replace it. Use **Reset** to restore its default.
 - **Git**, available at `/settings/git` when using a remote graph, controls automatic snapshots and manual synchronization.
 - **Documentation** contains this complete guide and is directly reachable at `/docs`. Search highlights every matching occurrence and provides previous/next navigation with `Enter` and `Shift + Enter`; `⌘/Ctrl + F` focuses the documentation search. Its **On this page** menu jumps directly to every main section; on mobile it appears as a section selector.
